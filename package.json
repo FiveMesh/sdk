@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "private": true,
   "description": "FiveMesh SDK resource for FiveM servers.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",

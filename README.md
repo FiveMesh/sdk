@@ -159,12 +159,18 @@ print(result.object.publicUrl)
 
 ## Configuration
 
-| ConVar | Default | Description |
-| --- | --- | --- |
-| `FIVEMESH_API_KEY` | none | Better Auth service API key with `fm_live_` prefix. |
-| `FIVEMESH_API_KEY_<PROFILE_NAME>` | none | Optional case-sensitive key profile used by SDK calls with `keyProfile`. |
-| `FIVEMESH_API_URL` | `https://api.fivemesh.io/v1` | API base URL. |
-| `FIVEMESH_SDK_DEBUG` | `false` | Prints the resolved API base URL on boot. |
+| ConVar                            | Default                      | Description                                                              |
+| --------------------------------- | ---------------------------- | ------------------------------------------------------------------------ |
+| `FIVEMESH_API_KEY`                | none                         | Better Auth service API key with `fm_live_` prefix.                      |
+| `FIVEMESH_API_KEY_<PROFILE_NAME>` | none                         | Optional case-sensitive key profile used by SDK calls with `keyProfile`. |
+| `FIVEMESH_API_URL`                | `https://api.fivemesh.io/v1` | API base URL.                                                            |
+| `FIVEMESH_SDK_DEBUG`              | `false`                      | Prints the resolved API base URL on boot.                                |
 
 `FIVEMESH_CDN_API_KEY` and `FIVEMESH_SERVICE_API_KEY` are accepted as fallback
 key names for early adopters, but `FIVEMESH_API_KEY` is preferred.
+
+## License
+
+MIT License
+
+Copyright (c) 2026 FiveMesh
