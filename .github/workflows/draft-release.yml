@@ -101,14 +101,10 @@ jobs:
 
           const manifestPath = "fxmanifest.lua";
           const manifest = fs.readFileSync(manifestPath, "utf8");
-          const nextManifest = manifest.replace(
-            /^version\s+["'][^"']+["']/m,
-            `version "${version}"`,
-          );
-
-          if (nextManifest === manifest) {
-            throw new Error("Could not find fxmanifest.lua version declaration.");
-          }
+          const versionPattern = /^(\s*)version\s+["'][^"']+["']/m;
+          const nextManifest = versionPattern.test(manifest)
+            ? manifest.replace(versionPattern, `$1version "${version}"`)
+            : `${manifest.replace(/\s*$/u, "")}\n\nversion "${version}"\n`;
 
           fs.writeFileSync(manifestPath, nextManifest);
           NODE
