@@ -7,6 +7,7 @@ import type {
   ListObjectsResponse,
   PresignedUrlOptions,
   PresignedUrlResponse,
+  PurgeObjectsResponse,
   UploadFileInput,
   UploadObjectResponse,
   UploadOptions,
@@ -117,6 +118,21 @@ export function bulkDelete(
     method: "POST",
     body: JSON.stringify({ paths }),
     headers: { "content-type": "application/json" },
+    keyProfile: options.keyProfile,
+  });
+}
+
+export function purgeObjects(
+  paths: string[],
+  options: { idempotencyKey?: string; keyProfile?: string } = {},
+): Promise<PurgeObjectsResponse> {
+  return requestJson<PurgeObjectsResponse>(getApiBaseUrl(), "/objects/purge", {
+    method: "POST",
+    body: JSON.stringify({ paths }),
+    headers: {
+      "content-type": "application/json",
+      ...idempotencyHeaders(options.idempotencyKey),
+    },
     keyProfile: options.keyProfile,
   });
 }

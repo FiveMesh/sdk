@@ -9,6 +9,7 @@ The SDK targets the first FiveMesh API release:
 - CDN object listing
 - Single and bulk upload
 - Single and bulk delete
+- CDN file purge
 - Presigned upload URL creation and upload
 - Optional screenshot upload through `screenshot-basic`
 
@@ -35,7 +36,7 @@ set FIVEMESH_API_URL "https://api.fivemesh.io/v1"
 ```
 
 The API key must have the matching CDN permissions for the exports you call:
-`read`, `write`, and/or `delete`.
+`read`, `write`, `delete`, and/or `purge`.
 
 You can also define optional API key profiles for stricter path and permission
 separation:
@@ -125,6 +126,17 @@ local result = exports["fivemesh-sdk"]:bulkDelete({
   "screenshots/a.webp",
   "screenshots/b.webp"
 })
+```
+
+### Purge CDN files
+
+```lua
+local result = exports["fivemesh-sdk"]:purgeObjects({
+  "screenshots/a.webp",
+  "screenshots/b.webp"
+})
+
+print(result.purged)
 ```
 
 ### Presigned uploads

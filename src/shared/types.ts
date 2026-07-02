@@ -91,6 +91,11 @@ export type BulkDeleteResponse = ApiEnvelope & {
   results: BulkDeleteResult[];
 };
 
+export type PurgeObjectsResponse = ApiEnvelope & {
+  paths: string[];
+  purged: number;
+};
+
 export type PresignedUrlOptions = {
   expiresIn?: number;
   path?: string;

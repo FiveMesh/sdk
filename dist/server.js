@@ -233,6 +233,17 @@ function bulkDelete(paths, options = {}) {
     keyProfile: options.keyProfile
   });
 }
+function purgeObjects(paths, options = {}) {
+  return requestJson(getApiBaseUrl(), "/objects/purge", {
+    method: "POST",
+    body: JSON.stringify({ paths }),
+    headers: {
+      "content-type": "application/json",
+      ...idempotencyHeaders(options.idempotencyKey)
+    },
+    keyProfile: options.keyProfile
+  });
+}
 function createPresignedUrl(options = {}) {
   const { keyProfile, ...query } = options;
   return requestJson(getApiBaseUrl(), "/presigned-url", {
@@ -350,6 +361,7 @@ exports("uploadImage", uploadImage);
 exports("bulkUpload", bulkUpload);
 exports("deleteObject", deleteObject);
 exports("bulkDelete", bulkDelete);
+exports("purgeObjects", purgeObjects);
 exports("createPresignedUrl", createPresignedUrl);
 exports("uploadWithPresignedUrl", uploadWithPresignedUrl);
 exports("takeServerImage", takeServerImage);

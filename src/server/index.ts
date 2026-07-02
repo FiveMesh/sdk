@@ -4,6 +4,7 @@ import {
   createPresignedUrl,
   deleteObject,
   listObjects,
+  purgeObjects,
   uploadFile,
   uploadImage,
   uploadWithPresignedUrl,
@@ -36,6 +37,7 @@ exports("uploadImage", uploadImage);
 exports("bulkUpload", bulkUpload);
 exports("deleteObject", deleteObject);
 exports("bulkDelete", bulkDelete);
+exports("purgeObjects", purgeObjects);
 exports("createPresignedUrl", createPresignedUrl);
 exports("uploadWithPresignedUrl", uploadWithPresignedUrl);
 exports("takeServerImage", takeServerImage);
