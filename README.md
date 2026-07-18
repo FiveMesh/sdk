@@ -75,6 +75,17 @@ end
 print(result.object.publicUrl)
 ```
 
+Data URLs from `canvas.toDataURL()` and raw binary strings from `atob()` are
+handled automatically. For a bare base64 string, set `dataEncoding = "base64"`:
+
+```lua
+local result = exports["fivemesh-sdk"]:uploadFile(base64Data, {
+  filename = "mugshot.png",
+  contentType = "image/png",
+  dataEncoding = "base64"
+})
+```
+
 JavaScript:
 
 ```js

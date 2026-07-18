@@ -38,6 +38,7 @@ export function uploadFile(
   const file = toBlobFile(data, {
     filename: options.filename,
     contentType: options.contentType,
+    dataEncoding: options.dataEncoding,
   });
   const form = new FormData();
   form.append("file", file.blob, file.filename);
@@ -76,6 +77,7 @@ export function bulkUpload(
       const file = toBlobFile(item.data, {
         filename: item.filename,
         contentType: item.contentType,
+        dataEncoding: item.dataEncoding,
       });
 
       form.append(fieldName, file.blob, file.filename);
@@ -156,6 +158,7 @@ export function uploadWithPresignedUrl(
   const file = toBlobFile(data, {
     filename: options.filename,
     contentType: options.contentType,
+    dataEncoding: options.dataEncoding,
   });
   const form = new FormData();
   form.append("file", file.blob, file.filename);

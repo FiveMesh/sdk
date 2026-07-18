@@ -8,7 +8,7 @@ const targets = [
     outfile: "dist/server.js",
     platform: "node",
     format: "cjs",
-    target: ["node22"],
+    target: ["node16"],
   },
   {
     entryPoints: ["src/client/index.ts"],

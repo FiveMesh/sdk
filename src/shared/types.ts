@@ -39,6 +39,7 @@ export type UploadOptions = {
   filename?: string;
   metadata?: Metadata;
   contentType?: string;
+  dataEncoding?: "utf8" | "base64" | "binary";
   idempotencyKey?: string;
   keyProfile?: string;
 };
@@ -59,6 +60,7 @@ export type BulkUploadItem = {
   path?: string;
   metadata?: Metadata;
   contentType?: string;
+  dataEncoding?: "utf8" | "base64" | "binary";
 };
 
 export type BulkUploadResult = {

@@ -5,10 +5,30 @@ type FilePayload = {
   filename: string;
 };
 
-function parseDataUrl(value: string): { bytes: Buffer; contentType?: string } {
+type StringEncoding = "utf8" | "base64" | "binary";
+
+function containsBinaryCodeUnits(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code === 0 || code > 0x7f) return true;
+  }
+  return false;
+}
+
+function parseStringInput(
+  value: string,
+  encoding?: StringEncoding,
+): { bytes: Buffer; contentType?: string } {
   const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(value);
   if (!match) {
-    return { bytes: Buffer.from(value) };
+    const resolvedEncoding =
+      encoding ?? (containsBinaryCodeUnits(value) ? "binary" : "utf8");
+    return {
+      bytes: Buffer.from(
+        value,
+        resolvedEncoding === "binary" ? "latin1" : resolvedEncoding,
+      ),
+    };
   }
 
   const [, contentType, base64Flag, body] = match;
@@ -20,7 +40,11 @@ function parseDataUrl(value: string): { bytes: Buffer; contentType?: string } {
 
 export function toBlobFile(
   input: UploadFileInput,
-  options: { filename?: string; contentType?: string } = {},
+  options: {
+    filename?: string;
+    contentType?: string;
+    dataEncoding?: StringEncoding;
+  } = {},
 ): FilePayload {
   if (input instanceof Blob) {
     return {
@@ -30,7 +54,7 @@ export function toBlobFile(
   }
 
   if (typeof input === "string") {
-    const parsed = parseDataUrl(input);
+    const parsed = parseStringInput(input, options.dataEncoding);
     return {
       blob: new Blob([new Uint8Array(parsed.bytes)], {
         type: options.contentType ?? parsed.contentType ?? "application/octet-stream",
