@@ -341,6 +341,51 @@ function takeImageFromRpc(playerSource, payload = {}) {
   return takeServerImage(playerSource, payload.metadata, payload.options);
 }
 
+// src/shared/exports.ts
+function isCallback(value) {
+  return typeof value === "function";
+}
+function deferToNextTick() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+function toExportFailure(error) {
+  const apiError = error;
+  return {
+    success: false,
+    requestId: typeof apiError.requestId === "string" ? apiError.requestId : void 0,
+    error: {
+      code: typeof apiError.code === "string" ? apiError.code : "SDK_EXPORT_FAILED",
+      message: getErrorMessage(error),
+      details: apiError.details ?? (typeof apiError.status === "number" ? { status: apiError.status } : void 0)
+    }
+  };
+}
+function wrapExport(name, handler) {
+  return (...rawArgs) => {
+    const maybeCallback = rawArgs[rawArgs.length - 1];
+    const callback = isCallback(maybeCallback) ? maybeCallback : void 0;
+    const args = callback ? rawArgs.slice(0, -1) : rawArgs;
+    const promise = deferToNextTick().then(() => handler(...args)).catch((error) => {
+      const failure = toExportFailure(error);
+      console.error(
+        `[FiveMesh SDK] Export "${name}" failed: ${failure.error?.message}`
+      );
+      return failure;
+    });
+    if (!callback) {
+      return promise;
+    }
+    promise.then((result) => {
+      if (result.success === false) {
+        callback(null, result.error?.message);
+        return;
+      }
+      callback(result);
+    });
+    return null;
+  };
+}
+
 // src/server/index.ts
 try {
   assertRequiredConfig();
@@ -355,16 +400,19 @@ registerRpc(
   "fivemesh:sdk:uploadImageData",
   (_source, payload) => uploadImageData(payload)
 );
-exports("listObjects", listObjects);
-exports("uploadFile", uploadFile);
-exports("uploadImage", uploadImage);
-exports("bulkUpload", bulkUpload);
-exports("deleteObject", deleteObject);
-exports("bulkDelete", bulkDelete);
-exports("purgeObjects", purgeObjects);
-exports("createPresignedUrl", createPresignedUrl);
-exports("uploadWithPresignedUrl", uploadWithPresignedUrl);
-exports("takeServerImage", takeServerImage);
+exports("listObjects", wrapExport("listObjects", listObjects));
+exports("uploadFile", wrapExport("uploadFile", uploadFile));
+exports("uploadImage", wrapExport("uploadImage", uploadImage));
+exports("bulkUpload", wrapExport("bulkUpload", bulkUpload));
+exports("deleteObject", wrapExport("deleteObject", deleteObject));
+exports("bulkDelete", wrapExport("bulkDelete", bulkDelete));
+exports("purgeObjects", wrapExport("purgeObjects", purgeObjects));
+exports("createPresignedUrl", wrapExport("createPresignedUrl", createPresignedUrl));
+exports(
+  "uploadWithPresignedUrl",
+  wrapExport("uploadWithPresignedUrl", uploadWithPresignedUrl)
+);
+exports("takeServerImage", wrapExport("takeServerImage", takeServerImage));
 if (getDebugEnabled()) {
   console.log(`[FiveMesh SDK] Ready. API base URL: ${getApiBaseUrl()}`);
 } else {

@@ -51,6 +51,11 @@ to `FIVEMESH_API_KEY_MUGSHOTS` exactly.
 
 ## Server Exports
 
+Lua callers can read the returned value directly. Failed exports return
+`success = false` with an `error` payload instead of throwing through the FiveM
+runtime bridge. JavaScript callers can use the returned Promise with `await` or
+`.then(...)`.
+
 ### Upload a file
 
 ```lua
@@ -61,6 +66,11 @@ local result = exports["fivemesh-sdk"]:uploadFile(fileBytes, {
     source = "inventory"
   }
 })
+
+if not result.success then
+  print(("FiveMesh upload failed: %s"):format(result.error.message))
+  return
+end
 
 print(result.object.publicUrl)
 ```
@@ -87,6 +97,13 @@ local result = exports["fivemesh-sdk"]:uploadImage(dataUrl, {
   filename = "player.webp",
   path = "screenshots"
 })
+
+if not result.success then
+  print(("FiveMesh image upload failed: %s"):format(result.error.message))
+  return
+end
+
+print(result.object.publicUrl)
 ```
 
 ### Capture a player screenshot
@@ -101,6 +118,11 @@ local result = exports["fivemesh-sdk"]:takeServerImage(source, {
   filename = "ticket.webp"
 }, 15000)
 
+if not result.success then
+  print(("FiveMesh screenshot failed: %s"):format(result.error.message))
+  return
+end
+
 print(result.object.publicUrl)
 ```
 
@@ -112,6 +134,11 @@ local result = exports["fivemesh-sdk"]:listObjects({
   limit = 50
 })
 
+if not result.success then
+  print(("FiveMesh list failed: %s"):format(result.error.message))
+  return
+end
+
 for _, object in ipairs(result.objects) do
   print(object.key, object.publicUrl)
 end
@@ -120,12 +147,20 @@ end
 ### Delete objects
 
 ```lua
-exports["fivemesh-sdk"]:deleteObject("screenshots/old.webp")
+local deleteResult = exports["fivemesh-sdk"]:deleteObject("screenshots/old.webp")
+
+if not deleteResult.success then
+  print(("FiveMesh delete failed: %s"):format(deleteResult.error.message))
+end
 
 local result = exports["fivemesh-sdk"]:bulkDelete({
   "screenshots/a.webp",
   "screenshots/b.webp"
 })
+
+if not result.success then
+  print(("FiveMesh bulk delete failed: %s"):format(result.error.message))
+end
 ```
 
 ### Purge CDN files
@@ -135,6 +170,11 @@ local result = exports["fivemesh-sdk"]:purgeObjects({
   "screenshots/a.webp",
   "screenshots/b.webp"
 })
+
+if not result.success then
+  print(("FiveMesh purge failed: %s"):format(result.error.message))
+  return
+end
 
 print(result.purged)
 ```
@@ -149,6 +189,11 @@ local token = exports["fivemesh-sdk"]:createPresignedUrl({
   expiresIn = 3600,
   allowedMimeTypes = { "image/png", "image/jpeg" }
 })
+
+if not token.success then
+  print(("FiveMesh upload URL failed: %s"):format(token.error.message))
+  return
+end
 
 print(token.uploadUrl)
 ```
@@ -165,6 +210,11 @@ local result = exports["fivemesh-sdk"]:takeImage({
   path = "screenshots/profile",
   filename = "profile.webp"
 })
+
+if not result.success then
+  print(("FiveMesh screenshot failed: %s"):format(result.error.message))
+  return
+end
 
 print(result.object.publicUrl)
 ```

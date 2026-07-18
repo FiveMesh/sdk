@@ -1,4 +1,5 @@
 import { callServer } from "./rpc";
+import { wrapExport } from "../shared/exports";
 import type {
   ScreenshotOptions,
   UploadObjectResponse,
@@ -26,5 +27,5 @@ function uploadImage(
   });
 }
 
-exports("takeImage", takeImage);
-exports("uploadImage", uploadImage);
+exports("takeImage", wrapExport("takeImage", takeImage));
+exports("uploadImage", wrapExport("uploadImage", uploadImage));

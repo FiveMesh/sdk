@@ -12,6 +12,7 @@ import {
 import { assertRequiredConfig, getApiBaseUrl, getDebugEnabled } from "./config";
 import { registerRpc } from "./rpc";
 import { takeImageFromRpc, takeServerImage, uploadImageData } from "./screenshots";
+import { wrapExport } from "../shared/exports";
 import type { UploadObjectResponse, UploadOptions } from "../shared/types";
 
 try {
@@ -31,16 +32,19 @@ registerRpc<
   uploadImageData(payload),
 );
 
-exports("listObjects", listObjects);
-exports("uploadFile", uploadFile);
-exports("uploadImage", uploadImage);
-exports("bulkUpload", bulkUpload);
-exports("deleteObject", deleteObject);
-exports("bulkDelete", bulkDelete);
-exports("purgeObjects", purgeObjects);
-exports("createPresignedUrl", createPresignedUrl);
-exports("uploadWithPresignedUrl", uploadWithPresignedUrl);
-exports("takeServerImage", takeServerImage);
+exports("listObjects", wrapExport("listObjects", listObjects));
+exports("uploadFile", wrapExport("uploadFile", uploadFile));
+exports("uploadImage", wrapExport("uploadImage", uploadImage));
+exports("bulkUpload", wrapExport("bulkUpload", bulkUpload));
+exports("deleteObject", wrapExport("deleteObject", deleteObject));
+exports("bulkDelete", wrapExport("bulkDelete", bulkDelete));
+exports("purgeObjects", wrapExport("purgeObjects", purgeObjects));
+exports("createPresignedUrl", wrapExport("createPresignedUrl", createPresignedUrl));
+exports(
+  "uploadWithPresignedUrl",
+  wrapExport("uploadWithPresignedUrl", uploadWithPresignedUrl),
+);
+exports("takeServerImage", wrapExport("takeServerImage", takeServerImage));
 
 if (getDebugEnabled()) {
   console.log(`[FiveMesh SDK] Ready. API base URL: ${getApiBaseUrl()}`);
