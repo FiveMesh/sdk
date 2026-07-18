@@ -1,6 +1,6 @@
 {
   "name": "@fivemesh/fivem-sdk",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "FiveMesh SDK resource for FiveM servers.",
   "license": "MIT",
