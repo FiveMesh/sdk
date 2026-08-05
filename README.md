@@ -14,7 +14,7 @@ The SDK targets the first FiveMesh API release:
 - Optional screenshot upload through `screenshot-basic`
 - Batched Logs ingestion with automatic player identifier enrichment
 - Server-only Logs queries with signed-cursor pagination
-- Opt-in FiveM, `baseevents`, and `ox_inventory` logging
+- Opt-in FiveM, `baseevents`, `ox_inventory`, and txAdmin logging
 
 ## Installation
 
@@ -41,7 +41,7 @@ set FIVEMESH_API_URL "https://api.fivemesh.io/v1"
 # Required when using FiveMesh Logs
 set FIVEMESH_SERVER_ID "your-cfx-server-id"
 
-# Optional: automatically log useful server and ox_inventory events
+# Optional: automatically log useful server, txAdmin, and ox_inventory events
 set FIVEMESH_LOGS_AUTOMATIC "true"
 
 ensure screenshot-basic # only required for takeImage/takeServerImage
@@ -300,6 +300,7 @@ set FIVEMESH_LOGS_AUTOMATIC "true"
 This enables:
 
 - Player connecting, joined, disconnected, died, and killed events
+- txAdmin lifecycle, announcement, moderation, whitelist, and admin events
 - Successful `ox_inventory` purchases, crafting, transfers, and item use on
   `ox_inventory` 2.47 or newer
 
@@ -313,12 +314,20 @@ For older `ox_inventory` releases, the SDK falls back to logging observed hook
 attempts because post-action hooks are unavailable. Same-inventory slot
 rearrangements are skipped to avoid noisy, low-value events.
 
+[txAdmin server events](https://github.com/citizenfx/txAdmin/blob/master/docs/events.md)
+are delivered while the game server is online and should be treated as
+best-effort operational records. Live Console command arguments are redacted
+automatically, and txAdmin hardware identifiers are never copied into Logs.
+Player identifiers supplied by moderation and whitelist events are stored in
+the same protected identifier fields as SDK-enriched player identifiers.
+
 Automatic logging can be tuned independently:
 
 ```cfg
 # Defaults to the FIVEMESH_LOGS_AUTOMATIC value
 set FIVEMESH_LOGS_BASEEVENTS "false"
 set FIVEMESH_LOGS_OX_INVENTORY "true"
+set FIVEMESH_LOGS_TXADMIN "true"
 
 # Exclude sensitive identifiers when required
 set FIVEMESH_LOGS_EXCLUDED_IDENTIFIERS "ip,discord"
@@ -400,10 +409,11 @@ print(result.object.publicUrl)
 | `FIVEMESH_SERVER_ID`              | none                         | Connected cfx.re server ID used by Logs ingestion.                       |
 | `FIVEMESH_LOGS_API_URL`           | `https://logs.fivemesh.io`   | Logs ingestion base URL.                                                 |
 | `FIVEMESH_LOGS_ENVIRONMENT`       | `production`                 | Environment attached to SDK-generated logs.                             |
-| `FIVEMESH_LOGS_AUTOMATIC`         | `false`                      | Enables automatic core, baseevents, and ox_inventory logs.              |
+| `FIVEMESH_LOGS_AUTOMATIC`         | `false`                      | Enables automatic core, baseevents, txAdmin, and ox_inventory logs.     |
 | `ENABLE_AUTOMATIC_LOGGING`        | `false`                      | Compatibility alias for `FIVEMESH_LOGS_AUTOMATIC`.                       |
 | `FIVEMESH_LOGS_BASEEVENTS`        | automatic setting            | Overrides automatic death and kill logging.                             |
 | `FIVEMESH_LOGS_OX_INVENTORY`      | automatic setting            | Overrides automatic ox_inventory logging.                               |
+| `FIVEMESH_LOGS_TXADMIN`           | automatic setting            | Overrides automatic txAdmin event logging.                              |
 | `FIVEMESH_LOGS_BATCH_SIZE`        | `50`                         | Events sent per batch, from 1 to 50.                                     |
 | `FIVEMESH_LOGS_FLUSH_INTERVAL`    | `5000`                       | Flush interval in milliseconds, from 1000 to 60000.                      |
 | `FIVEMESH_LOGS_EXCLUDED_IDENTIFIERS` | none                      | Comma-separated native identifier keys to omit.                          |

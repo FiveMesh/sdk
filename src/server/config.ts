@@ -75,7 +75,8 @@ export function assertRequiredConfig(): void {
     if (
       getAutomaticLoggingEnabled() ||
       getBaseEventsLoggingEnabled() ||
-      getOxInventoryLoggingEnabled()
+      getOxInventoryLoggingEnabled() ||
+      getTxAdminLoggingEnabled()
     ) {
       assertLogsWriteConfig();
     }
@@ -166,6 +167,13 @@ export function getOxInventoryLoggingEnabled(): boolean {
 export function getBaseEventsLoggingEnabled(): boolean {
   return (
     readBooleanConvar("FIVEMESH_LOGS_BASEEVENTS") ??
+    getAutomaticLoggingEnabled()
+  );
+}
+
+export function getTxAdminLoggingEnabled(): boolean {
+  return (
+    readBooleanConvar("FIVEMESH_LOGS_TXADMIN") ??
     getAutomaticLoggingEnabled()
   );
 }

@@ -9,6 +9,7 @@ import {
   getLogsFlushIntervalMs,
   getLogsServerId,
   getOxInventoryLoggingEnabled,
+  getTxAdminLoggingEnabled,
 } from "../config";
 import { startAutomaticLogging } from "./automatic";
 import { buildLogEvent } from "./event";
@@ -17,6 +18,7 @@ import {
   registerIdentifierLifecycle,
 } from "./identifiers";
 import { startOxInventoryLogging } from "./ox-inventory";
+import { startTxAdminLogging } from "./txadmin";
 import { LogsTransport } from "./transport";
 import type {
   FlushLogsResponse,
@@ -103,7 +105,8 @@ export function startLogsFeature(): void {
   const automatic = getAutomaticLoggingEnabled();
   const baseEvents = getBaseEventsLoggingEnabled();
   const oxInventory = getOxInventoryLoggingEnabled();
-  if (automatic || baseEvents || oxInventory) {
+  const txAdmin = getTxAdminLoggingEnabled();
+  if (automatic || baseEvents || oxInventory || txAdmin) {
     assertLogsWriteConfig();
     getLogsServerId();
   }
@@ -111,7 +114,7 @@ export function startLogsFeature(): void {
   started = true;
   registerIdentifierLifecycle();
 
-  if (automatic || baseEvents || oxInventory) {
+  if (automatic || baseEvents || oxInventory || txAdmin) {
     getTransport().start();
   }
 
@@ -138,6 +141,9 @@ export function startLogsFeature(): void {
   if (oxInventory) {
     startOxInventoryLogging(writeAutomatic);
   }
+  if (txAdmin) {
+    startTxAdminLogging(writeAutomatic);
+  }
 
   on("onResourceStop", (resourceName: string) => {
     if (resourceName !== GetCurrentResourceName() || !transport) return;
@@ -148,9 +154,9 @@ export function startLogsFeature(): void {
     });
   });
 
-  if (automatic || baseEvents || oxInventory) {
+  if (automatic || baseEvents || oxInventory || txAdmin) {
     console.log(
-      `[FiveMesh SDK] Logs ready. Automatic: ${automatic ? "on" : "off"}; baseevents: ${baseEvents ? "on" : "off"}; ox_inventory: ${oxInventory ? "on" : "off"}.`,
+      `[FiveMesh SDK] Logs ready. Automatic: ${automatic ? "on" : "off"}; baseevents: ${baseEvents ? "on" : "off"}; ox_inventory: ${oxInventory ? "on" : "off"}; txAdmin: ${txAdmin ? "on" : "off"}.`,
     );
   }
 }

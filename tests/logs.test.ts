@@ -14,6 +14,7 @@ import {
   LogsTransportError,
 } from "../src/server/logs/transport.ts";
 import { buildLogsQueryRequest } from "../src/server/logs/query.ts";
+import { buildTxAdminLog } from "../src/server/logs/txadmin.ts";
 
 test("formats native identifiers and preserves values after the first colon", () => {
   assert.deepEqual(
@@ -105,6 +106,73 @@ test("throttles client-reported baseevents per player", () => {
   assert.equal(throttle.accept("42", 15_000), true);
   throttle.clear("42");
   assert.equal(throttle.accept("42", 15_001), true);
+});
+
+test("maps txAdmin bans to moderation logs and protected identifiers", () => {
+  const log = buildTxAdminLog(
+    "playerBanned",
+    {
+      actionId: 123,
+      author: "Lucas",
+      expiration: false,
+      reason: "Cheating",
+      targetHwids: ["hwid-sensitive"],
+      targetIds: [
+        "license:abc123",
+        "discord:456789",
+        "ip:192.0.2.1",
+      ],
+      targetName: "Player One",
+      targetNetId: 42,
+    },
+    new Set(["ip"]),
+  );
+
+  assert.equal(log?.level, "warn");
+  assert.equal(log?.options.eventType, "txadmin.player.banned");
+  assert.equal(log?.options.targetPlayerId, "42");
+  assert.deepEqual(log?.options.targetPlayerIdentifiers, {
+    license: "abc123",
+    discord: "456789",
+  });
+  assert.equal(log?.options.data?.hardware_identifier_count, 1);
+  assert.equal(JSON.stringify(log).includes("hwid-sensitive"), false);
+  assert.equal(JSON.stringify(log).includes("192.0.2.1"), false);
+});
+
+test("redacts txAdmin Live Console command arguments", () => {
+  const log = buildTxAdminLog("consoleCommand", {
+    author: "Lucas",
+    channel: "txAdmin",
+    command: "set mysql_connection_string super-secret-value",
+  });
+
+  assert.equal(log?.options.eventType, "txadmin.console.command");
+  assert.equal(log?.options.data?.command_name, "set");
+  assert.equal(log?.options.data?.arguments_redacted, true);
+  assert.equal(JSON.stringify(log).includes("super-secret-value"), false);
+
+  const assignmentLog = buildTxAdminLog("consoleCommand", {
+    command: "sensitive_setting=another-secret-value",
+  });
+  assert.equal(assignmentLog?.options.data?.command_name, "sensitive_setting");
+  assert.equal(assignmentLog?.options.data?.arguments_redacted, true);
+  assert.equal(
+    JSON.stringify(assignmentLog).includes("another-secret-value"),
+    false,
+  );
+});
+
+test("maps txAdmin scheduled restart timing", () => {
+  const log = buildTxAdminLog("scheduledRestart", {
+    secondsRemaining: 300,
+    translatedMessage: "Restart in five minutes",
+  });
+
+  assert.equal(log?.level, "warn");
+  assert.equal(log?.message, "Scheduled server restart in 5 minutes");
+  assert.equal(log?.options.eventType, "txadmin.server.scheduled_restart");
+  assert.equal(log?.options.data?.seconds_remaining, 300);
 });
 
 test("reuses the same batch id and events after a retryable failure", async () => {
@@ -310,6 +378,24 @@ test("rejects query-only credentials when automatic ingestion is enabled", () =>
   const convars: Record<string, string> = {
     FIVEMESH_LOGS_QUERY_API_KEY: "fm_live_logs_read",
     FIVEMESH_LOGS_AUTOMATIC: "true",
+  };
+  globalThis.GetConvar = (name, fallback = "") => convars[name] ?? fallback;
+
+  try {
+    assert.throws(
+      () => assertRequiredConfig(),
+      /Automatic FiveMesh Logs ingestion requires .*logs:write/,
+    );
+  } finally {
+    globalThis.GetConvar = previousGetConvar;
+  }
+});
+
+test("rejects query-only credentials when txAdmin ingestion is enabled", () => {
+  const previousGetConvar = globalThis.GetConvar;
+  const convars: Record<string, string> = {
+    FIVEMESH_LOGS_QUERY_API_KEY: "fm_live_logs_read",
+    FIVEMESH_LOGS_TXADMIN: "true",
   };
   globalThis.GetConvar = (name, fallback = "") => convars[name] ?? fallback;
 

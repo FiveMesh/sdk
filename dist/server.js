@@ -50,7 +50,7 @@ function getApiKey(keyProfile) {
 }
 function assertRequiredConfig() {
   if (readConvar("FIVEMESH_LOGS_QUERY_API_KEY")) {
-    if (getAutomaticLoggingEnabled() || getBaseEventsLoggingEnabled() || getOxInventoryLoggingEnabled()) {
+    if (getAutomaticLoggingEnabled() || getBaseEventsLoggingEnabled() || getOxInventoryLoggingEnabled() || getTxAdminLoggingEnabled()) {
       assertLogsWriteConfig();
     }
     return;
@@ -112,6 +112,9 @@ function getOxInventoryLoggingEnabled() {
 }
 function getBaseEventsLoggingEnabled() {
   return readBooleanConvar("FIVEMESH_LOGS_BASEEVENTS") ?? getAutomaticLoggingEnabled();
+}
+function getTxAdminLoggingEnabled() {
+  return readBooleanConvar("FIVEMESH_LOGS_TXADMIN") ?? getAutomaticLoggingEnabled();
 }
 function getLogsBatchSize() {
   return readIntegerConvar("FIVEMESH_LOGS_BATCH_SIZE", 50, 1, 50);
@@ -396,16 +399,16 @@ var baseEventThrottle = createAutomaticEventThrottle(
 function createAutomaticEventThrottle(minimumIntervalMs) {
   const lastAcceptedAt = /* @__PURE__ */ new Map();
   return {
-    accept(playerId, now = Date.now()) {
-      const previous = lastAcceptedAt.get(playerId);
+    accept(playerId2, now = Date.now()) {
+      const previous = lastAcceptedAt.get(playerId2);
       if (previous !== void 0 && now - previous < Math.max(0, minimumIntervalMs)) {
         return false;
       }
-      lastAcceptedAt.set(playerId, now);
+      lastAcceptedAt.set(playerId2, now);
       return true;
     },
-    clear(playerId) {
-      lastAcceptedAt.delete(playerId);
+    clear(playerId2) {
+      lastAcceptedAt.delete(playerId2);
     }
   };
 }
@@ -421,10 +424,10 @@ function startAutomaticLogging(write, options) {
 }
 function registerCoreEvents(write) {
   on("playerConnecting", (playerName) => {
-    const playerId = String(global.source);
+    const playerId2 = String(global.source);
     write("info", `Player ${playerName} is connecting`, {
       eventType: "player.connecting",
-      playerId,
+      playerId: playerId2,
       resource: "fivem",
       data: {
         player_name: playerName
@@ -432,11 +435,11 @@ function registerCoreEvents(write) {
     });
   });
   on("playerJoining", (oldPlayerId) => {
-    const playerId = String(global.source);
-    const playerName = GetPlayerName(playerId) || "Unknown";
+    const playerId2 = String(global.source);
+    const playerName = GetPlayerName(playerId2) || "Unknown";
     write("info", `Player ${playerName} joined`, {
       eventType: "player.joined",
-      playerId,
+      playerId: playerId2,
       resource: "fivem",
       data: {
         player_name: playerName,
@@ -447,11 +450,11 @@ function registerCoreEvents(write) {
   on(
     "playerDropped",
     (reason, resourceName, clientDropReason) => {
-      const playerId = String(global.source);
-      const playerName = GetPlayerName(playerId) || "Unknown";
+      const playerId2 = String(global.source);
+      const playerName = GetPlayerName(playerId2) || "Unknown";
       write("info", `Player ${playerName} disconnected`, {
         eventType: "player.disconnected",
-        playerId,
+        playerId: playerId2,
         resource: "fivem",
         data: {
           player_name: playerName,
@@ -470,12 +473,12 @@ function registerBaseEvents(write) {
   on(
     "baseevents:onPlayerDied",
     (killerType, deathCoordinates) => {
-      const playerId = String(global.source);
-      if (!baseEventThrottle.accept(playerId)) return;
-      const playerName = GetPlayerName(playerId) || "Unknown";
+      const playerId2 = String(global.source);
+      if (!baseEventThrottle.accept(playerId2)) return;
+      const playerName = GetPlayerName(playerId2) || "Unknown";
       write("info", `Player ${playerName} died`, {
         eventType: "player.died",
-        playerId,
+        playerId: playerId2,
         resource: "baseevents",
         data: {
           event_trust: "client_reported",
@@ -579,13 +582,13 @@ function buildLogEvent(level, message, options, context) {
     "resource",
     96
   );
-  const playerId = optionalPlayerId(options.playerId, "playerId");
+  const playerId2 = optionalPlayerId(options.playerId, "playerId");
   const targetPlayerId = optionalPlayerId(
     options.targetPlayerId,
     "targetPlayerId"
   );
   const playerIdentifiers = mergeIdentifiers(
-    playerId ? context.getIdentifiers(playerId) : void 0,
+    playerId2 ? context.getIdentifiers(playerId2) : void 0,
     options.playerIdentifiers,
     "playerIdentifiers"
   );
@@ -603,7 +606,7 @@ function buildLogEvent(level, message, options, context) {
     occurred_at: occurredAt.toISOString()
   };
   if (resource) event.resource = resource;
-  if (playerId) event.player_id = playerId;
+  if (playerId2) event.player_id = playerId2;
   if (targetPlayerId) event.target_player_id = targetPlayerId;
   if (playerIdentifiers) event.player_identifiers = playerIdentifiers;
   if (targetPlayerIdentifiers) {
@@ -708,8 +711,8 @@ var IDENTIFIER_CACHE_TTL_MS = 5 * 60 * 1e3;
 var MAX_CACHED_PLAYERS = 512;
 var identifierCache = /* @__PURE__ */ new Map();
 var lifecycleRegistered = false;
-function getPlayerIdentifiers(playerId, options = {}) {
-  const source = normalizePlayerId(playerId);
+function getPlayerIdentifiers(playerId2, options = {}) {
+  const source = normalizePlayerId(playerId2);
   const cached = identifierCache.get(source);
   if (!options.force && cached && Date.now() - cached.capturedAt < IDENTIFIER_CACHE_TTL_MS) {
     return { ...cached.identifiers };
@@ -732,8 +735,8 @@ function getPlayerIdentifiers(playerId, options = {}) {
   cacheIdentifiers(source, identifiers);
   return { ...identifiers };
 }
-function clearPlayerIdentifiers(playerId) {
-  identifierCache.delete(normalizePlayerId(playerId));
+function clearPlayerIdentifiers(playerId2) {
+  identifierCache.delete(normalizePlayerId(playerId2));
 }
 function movePlayerIdentifiers(previousPlayerId, nextPlayerId) {
   const previous = identifierCache.get(normalizePlayerId(previousPlayerId));
@@ -745,27 +748,27 @@ function registerIdentifierLifecycle() {
   if (lifecycleRegistered) return;
   lifecycleRegistered = true;
   on("playerJoining", (oldPlayerId) => {
-    const playerId = String(global.source);
-    movePlayerIdentifiers(oldPlayerId, playerId);
-    getPlayerIdentifiers(playerId, { force: true });
+    const playerId2 = String(global.source);
+    movePlayerIdentifiers(oldPlayerId, playerId2);
+    getPlayerIdentifiers(playerId2, { force: true });
   });
   on("playerDropped", () => {
-    const playerId = String(global.source);
-    setImmediate(() => clearPlayerIdentifiers(playerId));
+    const playerId2 = String(global.source);
+    setImmediate(() => clearPlayerIdentifiers(playerId2));
   });
 }
-function cacheIdentifiers(playerId, identifiers) {
+function cacheIdentifiers(playerId2, identifiers) {
   if (identifierCache.size >= MAX_CACHED_PLAYERS) {
     const oldest = identifierCache.keys().next().value;
     if (oldest !== void 0) identifierCache.delete(oldest);
   }
-  identifierCache.set(playerId, {
+  identifierCache.set(playerId2, {
     identifiers,
     capturedAt: Date.now()
   });
 }
-function normalizePlayerId(playerId) {
-  const normalized = String(playerId).trim();
+function normalizePlayerId(playerId2) {
+  const normalized = String(playerId2).trim();
   if (!normalized || normalized.length > 128) {
     throw new Error("Player IDs must be non-empty and at most 128 characters.");
   }
@@ -861,12 +864,12 @@ function registerHook(oxInventory, eventName, supportsPostHooks, handler) {
   on(hookEvent, listener);
 }
 function logPurchase(write, payload) {
-  const playerId = playerIdFrom(payload.source) ?? playerIdFrom(payload.toInventory);
+  const playerId2 = playerIdFrom(payload.source) ?? playerIdFrom(payload.toInventory);
   const itemName = displayString(payload.itemName, "item");
   const count = finiteNumber(payload.count);
-  write("info", `Player ${playerId ?? "unknown"} purchased ${count ?? 1}x ${itemName}`, {
+  write("info", `Player ${playerId2 ?? "unknown"} purchased ${count ?? 1}x ${itemName}`, {
     eventType: "ox_inventory.item_purchased",
-    playerId,
+    playerId: playerId2,
     resource: "ox_inventory",
     data: {
       item_name: itemName,
@@ -882,13 +885,13 @@ function logPurchase(write, payload) {
   });
 }
 function logCraft(write, payload) {
-  const playerId = playerIdFrom(payload.source) ?? playerIdFrom(payload.toInventory);
+  const playerId2 = playerIdFrom(payload.source) ?? playerIdFrom(payload.toInventory);
   const recipe = isRecord(payload.recipe) ? payload.recipe : {};
   const itemName = displayString(recipe.name, "item");
   const count = finiteNumber(recipe.count);
-  write("info", `Player ${playerId ?? "unknown"} crafted ${count ?? 1}x ${itemName}`, {
+  write("info", `Player ${playerId2 ?? "unknown"} crafted ${count ?? 1}x ${itemName}`, {
     eventType: "ox_inventory.item_crafted",
-    playerId,
+    playerId: playerId2,
     resource: "ox_inventory",
     data: {
       item_name: itemName,
@@ -940,12 +943,12 @@ function logTransfer(write, payload) {
   );
 }
 function logUse(write, payload) {
-  const playerId = playerIdFrom(payload.source) ?? playerIdFrom(payload.inventoryId);
+  const playerId2 = playerIdFrom(payload.source) ?? playerIdFrom(payload.inventoryId);
   const item = isRecord(payload.item) ? payload.item : {};
   const itemName = displayString(item.name, "item");
-  write("info", `Player ${playerId ?? "unknown"} used ${itemName}`, {
+  write("info", `Player ${playerId2 ?? "unknown"} used ${itemName}`, {
     eventType: "ox_inventory.item_used",
-    playerId,
+    playerId: playerId2,
     resource: "ox_inventory",
     data: {
       item_name: itemName,
@@ -1035,6 +1038,447 @@ function versionAtLeast(version, minimum) {
   return true;
 }
 function getErrorMessage2(error2) {
+  return error2 instanceof Error ? error2.message : String(error2);
+}
+
+// src/server/logs/txadmin.ts
+var TXADMIN_EVENTS = [
+  "announcement",
+  "serverShuttingDown",
+  "scheduledRestart",
+  "scheduledRestartSkipped",
+  "playerBanned",
+  "playerDirectMessage",
+  "playerHealed",
+  "playerKicked",
+  "playerWarned",
+  "whitelistPlayer",
+  "whitelistPreApproval",
+  "whitelistRequest",
+  "actionRevoked",
+  "adminAuth",
+  "adminsUpdated",
+  "configChanged",
+  "consoleCommand"
+];
+var registered = false;
+function startTxAdminLogging(write) {
+  if (registered) return;
+  registered = true;
+  for (const eventName of TXADMIN_EVENTS) {
+    on(`txAdmin:events:${eventName}`, (eventData) => {
+      try {
+        const log = buildTxAdminLog(
+          eventName,
+          eventData,
+          getExcludedPlayerIdentifiers()
+        );
+        if (log) write(log.level, log.message, log.options);
+      } catch (error2) {
+        console.error(
+          `[FiveMesh SDK] txAdmin event "${eventName}" was skipped: ${getErrorMessage3(error2)}`
+        );
+      }
+    });
+  }
+  console.log("[FiveMesh SDK] txAdmin automatic logging attached.");
+}
+function buildTxAdminLog(eventName, eventData, excludedIdentifiers = /* @__PURE__ */ new Set()) {
+  const data = isRecord2(eventData) ? eventData : {};
+  const baseData = {
+    event_source: "txadmin"
+  };
+  switch (eventName) {
+    case "announcement": {
+      const author = displayString2(data.author, "txAdmin");
+      const announcement = displayString2(data.message, "Announcement");
+      return txAdminLog(
+        "info",
+        `txAdmin announcement from ${author}: ${announcement}`,
+        "txadmin.announcement",
+        {
+          ...baseData,
+          author,
+          message: optionalString3(data.message)
+        }
+      );
+    }
+    case "serverShuttingDown": {
+      const author = displayString2(data.author, "txAdmin");
+      return txAdminLog(
+        "warn",
+        `Server shutdown initiated by ${author}`,
+        "txadmin.server.shutting_down",
+        {
+          ...baseData,
+          author,
+          delay_ms: finiteNumber2(data.delay),
+          message: optionalString3(data.message)
+        }
+      );
+    }
+    case "scheduledRestart": {
+      const secondsRemaining = finiteNumber2(data.secondsRemaining);
+      return txAdminLog(
+        "warn",
+        secondsRemaining === void 0 ? "Scheduled server restart approaching" : `Scheduled server restart in ${formatDuration(secondsRemaining)}`,
+        "txadmin.server.scheduled_restart",
+        {
+          ...baseData,
+          seconds_remaining: secondsRemaining,
+          translated_message: optionalString3(data.translatedMessage)
+        }
+      );
+    }
+    case "scheduledRestartSkipped": {
+      const author = displayString2(data.author, "txAdmin admin");
+      return txAdminLog(
+        "info",
+        `Scheduled server restart skipped by ${author}`,
+        "txadmin.server.scheduled_restart_skipped",
+        {
+          ...baseData,
+          author,
+          seconds_remaining: finiteNumber2(data.secondsRemaining),
+          temporary: optionalBoolean(data.temporary)
+        }
+      );
+    }
+    case "playerBanned": {
+      const targetPlayerId = playerId(data.targetNetId);
+      const targetName = displayString2(
+        data.targetName,
+        targetPlayerId ? `player ${targetPlayerId}` : "identifiers"
+      );
+      const author = displayString2(data.author, "txAdmin admin");
+      return txAdminLog(
+        "warn",
+        `${targetName} was banned by ${author}`,
+        "txadmin.player.banned",
+        {
+          ...baseData,
+          action_id: primitiveValue2(data.actionId),
+          author,
+          duration_input: optionalString3(data.durationInput),
+          duration_translated: optionalString3(data.durationTranslated),
+          expiration: primitiveValue2(data.expiration),
+          hardware_identifier_count: arrayLength(data.targetHwids),
+          kick_message: optionalString3(data.kickMessage),
+          reason: optionalString3(data.reason),
+          target_name: targetName
+        },
+        {
+          targetPlayerId,
+          targetPlayerIdentifiers: identifiersFrom(
+            data.targetIds,
+            excludedIdentifiers
+          )
+        }
+      );
+    }
+    case "playerDirectMessage": {
+      const targetPlayerId = playerId(data.target);
+      const author = displayString2(data.author, "txAdmin admin");
+      return txAdminLog(
+        "info",
+        `${author} sent a direct message to player ${targetPlayerId ?? "unknown"}`,
+        "txadmin.player.direct_message",
+        {
+          ...baseData,
+          author,
+          message: optionalString3(data.message)
+        },
+        { targetPlayerId }
+      );
+    }
+    case "playerHealed": {
+      const targetPlayerId = playerId(data.target);
+      const author = displayString2(data.author, "txAdmin admin");
+      return txAdminLog(
+        "info",
+        targetPlayerId ? `Player ${targetPlayerId} was healed by ${author}` : `All players were healed by ${author}`,
+        "txadmin.player.healed",
+        {
+          ...baseData,
+          author,
+          all_players: targetPlayerId === void 0
+        },
+        { targetPlayerId }
+      );
+    }
+    case "playerKicked": {
+      const targetPlayerId = playerId(data.target);
+      const author = displayString2(data.author, "txAdmin admin");
+      return txAdminLog(
+        "warn",
+        targetPlayerId ? `Player ${targetPlayerId} was kicked by ${author}` : `All players were kicked by ${author}`,
+        "txadmin.player.kicked",
+        {
+          ...baseData,
+          all_players: targetPlayerId === void 0,
+          author,
+          drop_message: optionalString3(data.dropMessage),
+          reason: optionalString3(data.reason)
+        },
+        { targetPlayerId }
+      );
+    }
+    case "playerWarned": {
+      const targetPlayerId = playerId(data.targetNetId);
+      const targetName = displayString2(
+        data.targetName,
+        targetPlayerId ? `player ${targetPlayerId}` : "offline player"
+      );
+      const author = displayString2(data.author, "txAdmin admin");
+      return txAdminLog(
+        "warn",
+        `${targetName} was warned by ${author}`,
+        "txadmin.player.warned",
+        {
+          ...baseData,
+          action_id: primitiveValue2(data.actionId),
+          author,
+          reason: optionalString3(data.reason),
+          target_name: targetName
+        },
+        {
+          targetPlayerId,
+          targetPlayerIdentifiers: identifiersFrom(
+            data.targetIds,
+            excludedIdentifiers
+          )
+        }
+      );
+    }
+    case "whitelistPlayer": {
+      const action = displayString2(data.action, "updated");
+      const playerName = displayString2(data.playerName, "Player");
+      const adminName = displayString2(data.adminName, "txAdmin admin");
+      return txAdminLog(
+        "info",
+        `${playerName} whitelist access was ${action} by ${adminName}`,
+        "txadmin.whitelist.player_updated",
+        {
+          ...baseData,
+          action,
+          admin_name: adminName,
+          player_name: playerName
+        },
+        {
+          targetPlayerIdentifiers: licenseIdentifier(
+            data.license,
+            excludedIdentifiers
+          )
+        }
+      );
+    }
+    case "whitelistPreApproval": {
+      const action = displayString2(data.action, "updated");
+      const adminName = displayString2(data.adminName, "txAdmin admin");
+      return txAdminLog(
+        "info",
+        `Whitelist pre-approval was ${action} by ${adminName}`,
+        "txadmin.whitelist.preapproval_updated",
+        {
+          ...baseData,
+          action,
+          admin_name: adminName,
+          player_name: optionalString3(data.playerName)
+        },
+        {
+          targetPlayerIdentifiers: identifiersFrom(
+            [data.identifier],
+            excludedIdentifiers
+          )
+        }
+      );
+    }
+    case "whitelistRequest": {
+      const action = displayString2(data.action, "updated");
+      const playerName = displayString2(data.playerName, "Whitelist request");
+      return txAdminLog(
+        "info",
+        `${playerName} was ${action}`,
+        "txadmin.whitelist.request_updated",
+        {
+          ...baseData,
+          action,
+          admin_name: optionalString3(data.adminName),
+          player_name: optionalString3(data.playerName),
+          request_id: primitiveValue2(data.requestId)
+        },
+        {
+          targetPlayerIdentifiers: licenseIdentifier(
+            data.license,
+            excludedIdentifiers
+          )
+        }
+      );
+    }
+    case "actionRevoked": {
+      const actionType = displayString2(data.actionType, "action");
+      const playerName = displayString2(data.playerName, "player");
+      const revokedBy = displayString2(data.revokedBy, "txAdmin admin");
+      return txAdminLog(
+        "info",
+        `${actionType} for ${playerName} was revoked by ${revokedBy}`,
+        "txadmin.action.revoked",
+        {
+          ...baseData,
+          action_author: optionalString3(data.actionAuthor),
+          action_id: primitiveValue2(data.actionId),
+          action_reason: optionalString3(data.actionReason),
+          action_type: actionType,
+          hardware_identifier_count: arrayLength(data.playerHwids),
+          player_name: optionalString3(data.playerName),
+          revoked_by: revokedBy
+        },
+        {
+          targetPlayerIdentifiers: identifiersFrom(
+            data.playerIds,
+            excludedIdentifiers
+          )
+        }
+      );
+    }
+    case "adminAuth": {
+      const playerIdValue = playerId(data.netid);
+      const authenticated = data.isAdmin === true;
+      const username = displayString2(data.username, "Admin");
+      return txAdminLog(
+        "info",
+        playerIdValue ? `${username} ${authenticated ? "authenticated" : "lost authentication"} in game` : "All txAdmin in-game authentications were revoked",
+        "txadmin.admin.auth_changed",
+        {
+          ...baseData,
+          all_admins: playerIdValue === void 0,
+          is_admin: authenticated,
+          username: optionalString3(data.username)
+        },
+        { playerId: playerIdValue }
+      );
+    }
+    case "adminsUpdated": {
+      return txAdminLog(
+        "info",
+        "txAdmin administrator configuration was updated",
+        "txadmin.admins.updated",
+        {
+          ...baseData,
+          online_admin_count: arrayLength(eventData)
+        }
+      );
+    }
+    case "configChanged": {
+      return txAdminLog(
+        "info",
+        "txAdmin server configuration changed",
+        "txadmin.config.changed",
+        baseData
+      );
+    }
+    case "consoleCommand": {
+      const author = displayString2(data.author, "txAdmin admin");
+      const command = commandSummary(data.command);
+      return txAdminLog(
+        "info",
+        `${author} executed the ${command.name ?? "unknown"} console command`,
+        "txadmin.console.command",
+        {
+          ...baseData,
+          arguments_redacted: command.argumentsRedacted,
+          author,
+          channel: optionalString3(data.channel),
+          command_name: command.name
+        }
+      );
+    }
+    default:
+      return null;
+  }
+}
+function txAdminLog(level, message, eventType, data, player = {}) {
+  return {
+    level,
+    message: truncate(message, 2048),
+    options: {
+      eventType,
+      resource: "txadmin",
+      data,
+      ...player
+    }
+  };
+}
+function identifiersFrom(value, excludedIdentifiers) {
+  const values = Array.isArray(value) ? value : [];
+  const identifiers = formatPlayerIdentifiers(
+    values.filter((entry) => typeof entry === "string"),
+    excludedIdentifiers
+  );
+  return Object.keys(identifiers).length > 0 ? identifiers : void 0;
+}
+function licenseIdentifier(value, excludedIdentifiers) {
+  if (excludedIdentifiers.has("license")) return void 0;
+  const license = optionalString3(value, 256);
+  if (!license) return void 0;
+  const normalized = license.startsWith("license:") ? license.slice("license:".length) : license;
+  if (!normalized) return void 0;
+  return {
+    license: normalized
+  };
+}
+function playerId(value) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+    return String(value);
+  }
+  if (typeof value === "string" && /^\d+$/.test(value) && Number(value) >= 0) {
+    return value;
+  }
+  return void 0;
+}
+function commandSummary(value) {
+  var _a;
+  const command = (_a = optionalString3(value, 2048)) == null ? void 0 : _a.trim();
+  if (!command) return { argumentsRedacted: false };
+  const separator = command.search(/[\s=]/);
+  return {
+    argumentsRedacted: separator >= 0,
+    name: truncate(separator >= 0 ? command.slice(0, separator) : command, 128)
+  };
+}
+function formatDuration(seconds) {
+  if (seconds >= 60 && seconds % 60 === 0) {
+    const minutes = seconds / 60;
+    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+  return `${seconds} second${seconds === 1 ? "" : "s"}`;
+}
+function optionalString3(value, maximumLength = 1024) {
+  return typeof value === "string" && value.trim() ? truncate(value, maximumLength) : void 0;
+}
+function displayString2(value, fallback) {
+  return optionalString3(value, 256) ?? fallback;
+}
+function optionalBoolean(value) {
+  return typeof value === "boolean" ? value : void 0;
+}
+function finiteNumber2(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : void 0;
+}
+function primitiveValue2(value) {
+  if (typeof value === "string") return truncate(value, 1024);
+  return typeof value === "number" || typeof value === "boolean" ? value : null;
+}
+function arrayLength(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+function truncate(value, maximumLength) {
+  return value.length <= maximumLength ? value : `${value.slice(0, Math.max(0, maximumLength - 1))}\u2026`;
+}
+function isRecord2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function getErrorMessage3(error2) {
   return error2 instanceof Error ? error2.message : String(error2);
 }
 
@@ -1152,7 +1596,7 @@ var LogsTransport = class {
     };
   }
   reportFailure(error2) {
-    const message = getErrorMessage3(error2);
+    const message = getErrorMessage4(error2);
     const now = Date.now();
     if (message === this.lastReportedFailure && now - this.lastReportedFailureAt < 3e4) {
       return;
@@ -1190,7 +1634,7 @@ async function sendLogsBatch(batch) {
     const timedOut = controller.signal.aborted;
     throw new LogsTransportError({
       code: timedOut ? "LOGS_REQUEST_TIMEOUT" : "LOGS_NETWORK_ERROR",
-      message: timedOut ? `FiveMesh Logs acknowledgement timed out after ${REQUEST_TIMEOUT_MS}ms; the batch will be reconciled automatically.` : `FiveMesh Logs request failed: ${getErrorMessage3(error2)}`,
+      message: timedOut ? `FiveMesh Logs acknowledgement timed out after ${REQUEST_TIMEOUT_MS}ms; the batch will be reconciled automatically.` : `FiveMesh Logs request failed: ${getErrorMessage4(error2)}`,
       retryable: true
     });
   } finally {
@@ -1211,7 +1655,7 @@ async function sendLogsBatch(batch) {
   }
   return payload.accepted_events;
 }
-function getErrorMessage3(error2) {
+function getErrorMessage4(error2) {
   return error2 instanceof Error ? error2.message : String(error2);
 }
 function parseRetryAfterMs(value) {
@@ -1229,7 +1673,7 @@ function delay(milliseconds) {
 var transport = null;
 var started = false;
 function queueLog(level, message, options = {}) {
-  if (!isRecord2(options)) {
+  if (!isRecord3(options)) {
     throw new Error("Log options must be an object.");
   }
   getLogsServerId();
@@ -1272,13 +1716,14 @@ function startLogsFeature() {
   const automatic = getAutomaticLoggingEnabled();
   const baseEvents = getBaseEventsLoggingEnabled();
   const oxInventory = getOxInventoryLoggingEnabled();
-  if (automatic || baseEvents || oxInventory) {
+  const txAdmin = getTxAdminLoggingEnabled();
+  if (automatic || baseEvents || oxInventory || txAdmin) {
     assertLogsWriteConfig();
     getLogsServerId();
   }
   started = true;
   registerIdentifierLifecycle();
-  if (automatic || baseEvents || oxInventory) {
+  if (automatic || baseEvents || oxInventory || txAdmin) {
     getTransport().start();
   }
   const writeAutomatic = (level, message, options) => {
@@ -1286,7 +1731,7 @@ function startLogsFeature() {
       queueLog(level, message, options);
     } catch (logError) {
       console.error(
-        `[FiveMesh SDK] Automatic log "${options.eventType ?? "log"}" was skipped: ${getErrorMessage4(logError)}`
+        `[FiveMesh SDK] Automatic log "${options.eventType ?? "log"}" was skipped: ${getErrorMessage5(logError)}`
       );
     }
   };
@@ -1299,17 +1744,20 @@ function startLogsFeature() {
   if (oxInventory) {
     startOxInventoryLogging(writeAutomatic);
   }
+  if (txAdmin) {
+    startTxAdminLogging(writeAutomatic);
+  }
   on("onResourceStop", (resourceName) => {
     if (resourceName !== GetCurrentResourceName() || !transport) return;
     void transport.close().catch((closeError) => {
       console.error(
-        `[FiveMesh SDK] Final Logs flush failed: ${getErrorMessage4(closeError)}`
+        `[FiveMesh SDK] Final Logs flush failed: ${getErrorMessage5(closeError)}`
       );
     });
   });
-  if (automatic || baseEvents || oxInventory) {
+  if (automatic || baseEvents || oxInventory || txAdmin) {
     console.log(
-      `[FiveMesh SDK] Logs ready. Automatic: ${automatic ? "on" : "off"}; baseevents: ${baseEvents ? "on" : "off"}; ox_inventory: ${oxInventory ? "on" : "off"}.`
+      `[FiveMesh SDK] Logs ready. Automatic: ${automatic ? "on" : "off"}; baseevents: ${baseEvents ? "on" : "off"}; ox_inventory: ${oxInventory ? "on" : "off"}; txAdmin: ${txAdmin ? "on" : "off"}.`
     );
   }
 }
@@ -1320,10 +1768,10 @@ function getTransport() {
   });
   return transport;
 }
-function isRecord2(value) {
+function isRecord3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function getErrorMessage4(logError) {
+function getErrorMessage5(logError) {
   return logError instanceof Error ? logError.message : String(logError);
 }
 
@@ -1363,17 +1811,17 @@ function buildLogsQueryRequest(options, context) {
     limit
   };
   const level = options.level ?? void 0;
-  const eventType = optionalString3(options.eventType);
-  const resource = optionalString3(options.resource);
-  const message = optionalString3(options.message);
-  const playerId = options.playerId == null ? void 0 : optionalString3(String(options.playerId));
+  const eventType = optionalString4(options.eventType);
+  const resource = optionalString4(options.resource);
+  const message = optionalString4(options.message);
+  const playerId2 = options.playerId == null ? void 0 : optionalString4(String(options.playerId));
   const identifier = options.identifier ?? void 0;
-  const cursor = optionalString3(options.cursor);
+  const cursor = optionalString4(options.cursor);
   if (level) request.level = level;
   if (eventType) request.eventType = eventType;
   if (resource) request.resource = resource;
   if (message) request.message = message;
-  if (playerId) request.playerId = playerId;
+  if (playerId2) request.playerId = playerId2;
   if (identifier) request.identifier = identifier;
   if (cursor) request.cursor = cursor;
   return request;
@@ -1399,7 +1847,7 @@ function parseQueryDate(value, label, fallback) {
   }
   return date;
 }
-function optionalString3(value) {
+function optionalString4(value) {
   const normalized = value == null ? void 0 : value.trim();
   return normalized || void 0;
 }
