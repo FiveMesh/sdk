@@ -39,47 +39,41 @@
   }
 
   // src/shared/exports.ts
-  function isCallback(value) {
-    return typeof value === "function";
-  }
-  function deferToNextTick() {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-  }
   function toExportFailure(error) {
     const apiError = error;
-    return {
+    const failure = {
       success: false,
-      requestId: typeof apiError.requestId === "string" ? apiError.requestId : void 0,
       error: {
         code: typeof apiError.code === "string" ? apiError.code : "SDK_EXPORT_FAILED",
-        message: getErrorMessage(error),
-        details: apiError.details ?? (typeof apiError.status === "number" ? { status: apiError.status } : void 0)
+        message: getErrorMessage(error)
       }
     };
+    if (typeof apiError.requestId === "string") {
+      failure.requestId = apiError.requestId;
+    }
+    if (apiError.details !== void 0) {
+      failure.error.details = apiError.details;
+    } else if (typeof apiError.status === "number") {
+      failure.error.details = { status: apiError.status };
+    }
+    return failure;
   }
   function wrapExport(name, handler) {
-    return (...rawArgs) => {
-      const maybeCallback = rawArgs[rawArgs.length - 1];
-      const callback = isCallback(maybeCallback) ? maybeCallback : void 0;
-      const args = callback ? rawArgs.slice(0, -1) : rawArgs;
-      const promise = deferToNextTick().then(() => handler(...args)).catch((error) => {
+    return async (...args) => {
+      try {
+        return await handler(...args);
+      } catch (error) {
         const failure = toExportFailure(error);
+        const context = [
+          `code=${failure.error?.code}`,
+          failure.requestId ? `requestId=${failure.requestId}` : null,
+          failure.error?.details !== void 0 ? `details=${JSON.stringify(failure.error.details)}` : null
+        ].filter(Boolean).join(" ");
         console.error(
-          `[FiveMesh SDK] Export "${name}" failed: ${failure.error?.message}`
+          `[FiveMesh SDK] Export "${name}" failed: ${failure.error?.message} (${context})`
         );
         return failure;
-      });
-      if (!callback) {
-        return promise;
       }
-      promise.then((result) => {
-        if (result.success === false) {
-          callback(null, result.error?.message);
-          return;
-        }
-        callback(result);
-      });
-      return null;
     };
   }
 

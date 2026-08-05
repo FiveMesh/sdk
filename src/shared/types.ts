@@ -134,3 +134,61 @@ export type RpcResponse<T> =
       success: false;
       error: string;
     };
+
+export type LogsLevel = "debug" | "info" | "warn" | "error" | "fatal";
+
+export type LogsIdentifierFilter = {
+  owner: "player" | "target";
+  key: string;
+  value: string;
+};
+
+export type QueryLogsOptions = {
+  /** Defaults to FIVEMESH_SERVER_ID. */
+  serverId?: string;
+  /** RFC 3339 start time. Defaults to `lookbackMinutes` before `to`. */
+  from?: string;
+  /** RFC 3339 end time. Defaults to now. */
+  to?: string;
+  /** Used only when `from` is omitted. Defaults to 360 (six hours). */
+  lookbackMinutes?: number;
+  level?: LogsLevel;
+  eventType?: string;
+  resource?: string;
+  message?: string;
+  playerId?: string | number;
+  identifier?: LogsIdentifierFilter;
+  cursor?: string;
+  limit?: number;
+  keyProfile?: string;
+};
+
+export type LogsEvent = {
+  event_id: string;
+  server_id: string;
+  level: LogsLevel;
+  event_type: string;
+  occurred_at: string;
+  ingested_at: string;
+  player_id: string | null;
+  target_player_id: string | null;
+  player_identifiers: Record<string, string> | null;
+  target_player_identifiers: Record<string, string> | null;
+  resource: string | null;
+  trace_id: string | null;
+  environment: string | null;
+  message: string;
+  data: Record<string, unknown> | null;
+};
+
+export type QueryLogsResponse = ApiEnvelope & {
+  events: LogsEvent[];
+  pagination: {
+    hasMore: boolean;
+    nextCursor: string | null;
+  };
+  range: {
+    from: string;
+    to: string;
+  };
+};

@@ -6,7 +6,7 @@ node_version "22"
 
 author "FiveMesh"
 description "FiveMesh SDK bridge for FiveM servers"
-version "0.1.4"
+version "0.1.5"
 
 server_script "dist/server.js"
 client_script "dist/client.js"

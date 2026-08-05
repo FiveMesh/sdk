@@ -1,12 +1,13 @@
 {
   "name": "@fivemesh/fivem-sdk",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "FiveMesh SDK resource for FiveM servers.",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "test": "node scripts/test.mjs",
     "type-check": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "dev": "node scripts/build.mjs --watch"
   },

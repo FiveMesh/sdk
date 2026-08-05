@@ -42,8 +42,17 @@ export function wrapExport<TArgs extends unknown[], TResult>(
       return await handler(...args);
     } catch (error) {
       const failure = toExportFailure(error);
+      const context = [
+        `code=${failure.error?.code}`,
+        failure.requestId ? `requestId=${failure.requestId}` : null,
+        failure.error?.details !== undefined
+          ? `details=${JSON.stringify(failure.error.details)}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" ");
       console.error(
-        `[FiveMesh SDK] Export "${name}" failed: ${failure.error?.message}`,
+        `[FiveMesh SDK] Export "${name}" failed: ${failure.error?.message} (${context})`,
       );
       return failure;
     }
