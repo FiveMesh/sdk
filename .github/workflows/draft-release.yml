@@ -132,6 +132,9 @@ jobs:
       - name: Type-check
         run: pnpm run type-check
 
+      - name: Test
+        run: pnpm test
+
       - name: Build SDK
         run: pnpm run build
 
@@ -148,6 +151,7 @@ jobs:
           mkdir -p release/fivemesh-sdk
 
           cp fxmanifest.lua release/fivemesh-sdk/fxmanifest.lua
+          cp LICENSE release/fivemesh-sdk/LICENSE
           cp -R dist release/fivemesh-sdk/dist
 
           (cd release && zip -r "../${asset_name}" fivemesh-sdk)

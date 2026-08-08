@@ -9,6 +9,8 @@ type RequestOptions = {
   headers?: Record<string, string>;
   authenticated?: boolean;
   keyProfile?: string;
+  authorization?: string;
+  timeoutMs?: number;
 };
 
 function buildUrl(baseUrl: string, path: string, query?: RequestOptions["query"]) {
@@ -38,14 +40,27 @@ export async function requestJson<T extends ApiEnvelope>(
   };
 
   if (options.authenticated !== false) {
-    headers.authorization = getBearerToken(options.keyProfile);
+    headers.authorization =
+      options.authorization ?? getBearerToken(options.keyProfile);
   }
 
-  const response = await fetch(buildUrl(baseUrl, path, options.query), {
-    method: options.method ?? "GET",
-    headers,
-    body: options.body,
-  });
+  const controller =
+    options.timeoutMs === undefined ? undefined : new AbortController();
+  const timeout =
+    controller === undefined
+      ? undefined
+      : setTimeout(() => controller.abort(), options.timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(baseUrl, path, options.query), {
+      method: options.method ?? "GET",
+      headers,
+      body: options.body,
+      signal: controller?.signal,
+    });
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
 
   const requestId = response.headers.get("x-request-id") ?? undefined;
   let payload: ApiEnvelope | null = null;
