@@ -5,6 +5,7 @@ import { createAutomaticEventThrottle } from "../src/server/logs/automatic.ts";
 import {
   assertRequiredConfig,
   getLogsQueryBearerToken,
+  getLogsServerId,
 } from "../src/server/config.ts";
 import { buildLogEvent } from "../src/server/logs/event.ts";
 import { formatPlayerIdentifiers } from "../src/server/logs/identifier-format.ts";
@@ -12,9 +13,27 @@ import { versionAtLeast } from "../src/server/logs/ox-inventory.ts";
 import {
   LogsTransport,
   LogsTransportError,
+  resolveLogsIngestionUrl,
 } from "../src/server/logs/transport.ts";
 import { buildLogsQueryRequest } from "../src/server/logs/query.ts";
 import { buildTxAdminLog } from "../src/server/logs/txadmin.ts";
+import { resolvePresignedUploadUrl } from "../src/server/api.ts";
+import { DEFAULT_REQUEST_TIMEOUT_MS } from "../src/server/http.ts";
+
+test("uses a bounded default HTTP timeout", () => {
+  assert.equal(DEFAULT_REQUEST_TIMEOUT_MS, 30_000);
+});
+
+test("requires secure presigned upload URLs outside loopback development", () => {
+  assert.equal(
+    resolvePresignedUploadUrl("https://uploads.example.test/token"),
+    "https://uploads.example.test/token",
+  );
+  assert.throws(
+    () => resolvePresignedUploadUrl("http://uploads.example.test/token"),
+    /must use HTTPS/,
+  );
+});
 
 test("formats native identifiers and preserves values after the first colon", () => {
   assert.deepEqual(
@@ -443,6 +462,56 @@ test("scheduled flushing retries a retained batch without new events", async () 
   } finally {
     console.error = originalConsoleError;
     await transport.close();
+  }
+});
+
+test("omits the server id when no convar is set and lets the key decide", () => {
+  const previousGetConvar = globalThis.GetConvar;
+  const convars: Record<string, string> = {
+    FIVEMESH_LOGS_QUERY_API_KEY: "fm_live_logs_read",
+  };
+  globalThis.GetConvar = (name, fallback = "") => convars[name] ?? fallback;
+
+  try {
+    assert.equal(getLogsServerId(), null);
+    const body = buildLogsQueryRequest(
+      {},
+      { now: new Date("2026-08-04T13:00:00.000Z"), serverId: null },
+    );
+    assert.equal(body.serverId, undefined);
+    assert.equal("serverId" in body, false);
+  } finally {
+    globalThis.GetConvar = previousGetConvar;
+  }
+});
+
+test("normalizes a configured server id and keeps it in the query", () => {
+  const previousGetConvar = globalThis.GetConvar;
+  const convars: Record<string, string> = {
+    FIVEMESH_SERVER_ID: "ABC-123",
+    FIVEMESH_LOGS_QUERY_API_KEY: "fm_live_logs_read",
+  };
+  globalThis.GetConvar = (name, fallback = "") => convars[name] ?? fallback;
+
+  try {
+    assert.equal(getLogsServerId(), "abc-123");
+    const body = buildLogsQueryRequest(
+      {},
+      { now: new Date("2026-08-04T13:00:00.000Z"), serverId: getLogsServerId() },
+    );
+    assert.equal(body.serverId, "abc-123");
+    assert.equal(
+      resolveLogsIngestionUrl(getLogsServerId(), "https://logs.example.test"),
+      "https://logs.example.test/v1/servers/abc-123/logs",
+    );
+    assert.equal(
+      resolveLogsIngestionUrl(null, "https://logs.example.test"),
+      "https://logs.example.test/v1/logs",
+    );
+    convars.FIVEMESH_SERVER_ID = "!!";
+    assert.throws(() => getLogsServerId(), /Invalid FiveMesh server ID/);
+  } finally {
+    globalThis.GetConvar = previousGetConvar;
   }
 });
 

@@ -21,6 +21,16 @@ export type LogsBatch = {
   events: LogsEvent[];
 };
 
+/** `/v1/logs` lets a Server-scoped key omit the id; the gateway resolves it. */
+export function resolveLogsIngestionUrl(
+  serverId: string | null,
+  baseUrl = getLogsBaseUrl(),
+) {
+  return serverId
+    ? `${baseUrl}/v1/servers/${encodeURIComponent(serverId)}/logs`
+    : `${baseUrl}/v1/logs`;
+}
+
 export type LogsTransportOptions = {
   batchSize: number;
   flushIntervalMs: number;
@@ -188,7 +198,7 @@ async function sendLogsBatch(batch: LogsBatch): Promise<number> {
 
   try {
     response = await fetch(
-      `${getLogsBaseUrl()}/v1/servers/${encodeURIComponent(serverId)}/logs`,
+      resolveLogsIngestionUrl(serverId),
       {
         method: "POST",
         headers: {

@@ -21,6 +21,7 @@ import {
   warn,
 } from "./logs/logger";
 import { queryLogs } from "./logs/query";
+import { logApiKeyIdentity, whoami } from "./identity";
 import { registerRpc } from "./rpc";
 import { takeImageFromRpc, takeServerImage, uploadImageData } from "./screenshots";
 import { wrapExport } from "../shared/exports";
@@ -66,6 +67,9 @@ exports("error", wrapExport("error", error));
 exports("fatal", wrapExport("fatal", fatal));
 exports("flushLogs", wrapExport("flushLogs", flushLogs));
 exports("queryLogs", wrapExport("queryLogs", queryLogs));
+exports("whoami", wrapExport("whoami", whoami));
+
+void logApiKeyIdentity();
 
 if (getDebugEnabled()) {
   console.log(`[FiveMesh SDK] Ready. API base URL: ${getApiBaseUrl()}`);

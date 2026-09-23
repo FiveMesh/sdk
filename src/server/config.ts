@@ -127,22 +127,22 @@ export function getLogsBaseUrl(): string {
   ).replace(/\/+$/g, "");
 }
 
-export function getLogsServerId(): string {
+/**
+ * Server the Logs features act on. Optional: a Server-scoped key already names
+ * its Server, so the convar is only required for a global key.
+ */
+export function getLogsServerId(): string | null {
   const serverId =
     readConvar("FIVEMESH_SERVER_ID") ||
     readConvar("FIVEMESH_LOGS_SERVER_ID");
 
-  if (!serverId) {
-    throw new Error(
-      "Missing FiveMesh server ID. Add `set FIVEMESH_SERVER_ID your-cfx-server-id` to server.cfg.",
-    );
-  }
+  if (!serverId) return null;
   if (!/^[A-Za-z0-9-]{3,64}$/.test(serverId)) {
     throw new Error(
       "Invalid FiveMesh server ID. Use the connected cfx.re server ID shown in the FiveMesh Logs dashboard.",
     );
   }
-  return serverId;
+  return serverId.toLowerCase();
 }
 
 export function getLogsEnvironment(): string {

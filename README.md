@@ -38,7 +38,8 @@ set FIVEMESH_API_KEY "fm_live_..."
 # Optional, defaults to https://api.fivemesh.io/v1
 set FIVEMESH_API_URL "https://api.fivemesh.io/v1"
 
-# Required when using FiveMesh Logs
+# Required when using FiveMesh Logs with a global (all servers) key.
+# A key created for one server already names it, so this can be omitted.
 set FIVEMESH_SERVER_ID "your-cfx-server-id"
 
 # Optional: automatically log useful server, txAdmin, and ox_inventory events
@@ -370,10 +371,27 @@ if result.pagination.hasMore then
 end
 ```
 
-The SDK defaults to the configured `FIVEMESH_SERVER_ID`, the latest six hours,
-and 100 results. Queries may span at most seven days. Supported filters are
-`level`, `eventType`, `resource`, `message`, `playerId`, and an exact
-`identifier` object containing `owner`, `key`, and `value`.
+The SDK queries the configured `FIVEMESH_SERVER_ID`, or the Server the API key
+is bound to when no convar is set, over the latest six hours with 100 results.
+Queries may span at most seven days. Supported filters are `level`, `eventType`,
+`resource`, `message`, `playerId`, and an exact `identifier` object containing
+`owner`, `key`, and `value`.
+
+### Describe the API key
+
+`whoami` is a server export that reports what the configured key may do: its
+organization, the server it is bound to (or `nil` for a global key) and its
+permissions. The SDK also performs this check on start and logs the result, so a
+wrong or disabled key, or a global key without `FIVEMESH_SERVER_ID`, is visible
+in the server console immediately.
+
+```lua
+local identity = exports["fivemesh-sdk"]:whoami()
+
+if identity.success and identity.server then
+  print(("Bound to %s (%s)"):format(identity.server.name or "server", identity.server.cfxId))
+end
+```
 
 ## Client Exports
 
@@ -406,7 +424,7 @@ print(result.object.publicUrl)
 | `FIVEMESH_API_KEY_<PROFILE_NAME>` | none                         | Optional case-sensitive key profile used by SDK calls with `keyProfile`. |
 | `FIVEMESH_API_URL`                | `https://api.fivemesh.io/v1` | API base URL.                                                            |
 | `FIVEMESH_SDK_DEBUG`              | `false`                      | Prints the resolved API base URL on boot.                                |
-| `FIVEMESH_SERVER_ID`              | none                         | Connected cfx.re server ID used by Logs ingestion.                       |
+| `FIVEMESH_SERVER_ID`              | none                         | Connected cfx.re server ID for Logs. Required only for a global key; a server-specific key resolves it automatically. |
 | `FIVEMESH_LOGS_API_URL`           | `https://logs.fivemesh.io`   | Logs ingestion base URL.                                                 |
 | `FIVEMESH_LOGS_ENVIRONMENT`       | `production`                 | Environment attached to SDK-generated logs.                             |
 | `FIVEMESH_LOGS_AUTOMATIC`         | `false`                      | Enables automatic core, baseevents, txAdmin, and ox_inventory logs.     |

@@ -13,7 +13,7 @@ const DEFAULT_LOOKBACK_MINUTES = 6 * 60;
 const MAX_LOOKBACK_MINUTES = 7 * 24 * 60;
 
 export type LogsQueryRequestBody = {
-  serverId: string;
+  serverId?: string;
   from: string;
   to: string;
   level?: QueryLogsOptions["level"];
@@ -28,10 +28,12 @@ export type LogsQueryRequestBody = {
 
 export function buildLogsQueryRequest(
   options: QueryLogsOptions,
-  context: { now: Date; serverId: string },
+  context: { now: Date; serverId: string | null },
 ): LogsQueryRequestBody {
-  const serverId = (options.serverId ?? context.serverId).trim().toLowerCase();
-  if (!/^[a-z0-9-]{3,64}$/.test(serverId)) {
+  // Server-scoped keys may omit the id; the API resolves it from the binding.
+  const requestedServerId = options.serverId ?? context.serverId ?? undefined;
+  const serverId = requestedServerId?.trim().toLowerCase();
+  if (serverId !== undefined && !/^[a-z0-9-]{3,64}$/.test(serverId)) {
     throw new Error("A valid FiveMesh CFX server ID is required.");
   }
 
@@ -67,11 +69,11 @@ export function buildLogsQueryRequest(
   }
 
   const request: LogsQueryRequestBody = {
-    serverId,
     from: from.toISOString(),
     to: to.toISOString(),
     limit,
   };
+  if (serverId !== undefined) request.serverId = serverId;
   const level = options.level ?? undefined;
   const eventType = optionalString(options.eventType);
   const resource = optionalString(options.resource);
