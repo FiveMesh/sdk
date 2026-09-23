@@ -89,17 +89,13 @@ function getLogsBaseUrl() {
 }
 function getLogsServerId() {
   const serverId = readConvar("FIVEMESH_SERVER_ID") || readConvar("FIVEMESH_LOGS_SERVER_ID");
-  if (!serverId) {
-    throw new Error(
-      "Missing FiveMesh server ID. Add `set FIVEMESH_SERVER_ID your-cfx-server-id` to server.cfg."
-    );
-  }
+  if (!serverId) return null;
   if (!/^[A-Za-z0-9-]{3,64}$/.test(serverId)) {
     throw new Error(
       "Invalid FiveMesh server ID. Use the connected cfx.re server ID shown in the FiveMesh Logs dashboard."
     );
   }
-  return serverId;
+  return serverId.toLowerCase();
 }
 function getLogsEnvironment() {
   return readConvar("FIVEMESH_LOGS_ENVIRONMENT", "production");
@@ -216,6 +212,7 @@ var FiveMeshApiError = class extends Error {
 };
 
 // src/server/http.ts
+var DEFAULT_REQUEST_TIMEOUT_MS = 3e4;
 function buildUrl(baseUrl, path, query) {
   const suffix = path === "" ? "" : path.startsWith("/") ? path : `/${path}`;
   const url = new URL(`${baseUrl}${suffix}`);
@@ -237,18 +234,22 @@ async function requestJson(baseUrl, path, options = {}) {
   if (options.authenticated !== false) {
     headers.authorization = options.authorization ?? getBearerToken(options.keyProfile);
   }
-  const controller = options.timeoutMs === void 0 ? void 0 : new AbortController();
-  const timeout = controller === void 0 ? void 0 : setTimeout(() => controller.abort(), options.timeoutMs);
+  const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(new Error(`Request timed out after ${timeoutMs}ms.`)),
+    Math.max(1, timeoutMs)
+  );
   let response;
   try {
     response = await fetch(buildUrl(baseUrl, path, options.query), {
       method: options.method ?? "GET",
       headers,
       body: options.body,
-      signal: controller == null ? void 0 : controller.signal
+      signal: controller.signal
     });
   } finally {
-    if (timeout !== void 0) clearTimeout(timeout);
+    clearTimeout(timeout);
   }
   const requestId = response.headers.get("x-request-id") ?? void 0;
   let payload = null;
@@ -296,7 +297,8 @@ function uploadFile(data, options = {}) {
     method: "POST",
     body: form,
     headers: idempotencyHeaders(options.idempotencyKey),
-    keyProfile: options.keyProfile
+    keyProfile: options.keyProfile,
+    timeoutMs: 12e4
   });
 }
 function uploadImage(data, metadata, options = {}) {
@@ -330,7 +332,8 @@ function bulkUpload(items, options = {}) {
     method: "POST",
     body: form,
     headers: idempotencyHeaders(options.idempotencyKey),
-    keyProfile: options.keyProfile
+    keyProfile: options.keyProfile,
+    timeoutMs: 12e4
   });
 }
 function deleteObject(path, options = {}) {
@@ -378,12 +381,27 @@ function uploadWithPresignedUrl(uploadUrlOrToken, data, options = {}) {
   if (options.filename) form.append("filename", options.filename);
   if (options.path) form.append("path", options.path);
   appendMetadata(form, options.metadata);
-  const url = uploadUrlOrToken.startsWith("http") ? uploadUrlOrToken : `${getApiBaseUrl()}/presigned-url/${uploadUrlOrToken}`;
+  const url = resolvePresignedUploadUrl(uploadUrlOrToken);
   return requestJson(url, "", {
     method: "POST",
     body: form,
-    authenticated: false
+    authenticated: false,
+    timeoutMs: 12e4
   });
+}
+function resolvePresignedUploadUrl(uploadUrlOrToken) {
+  if (/^https?:\/\//i.test(uploadUrlOrToken)) {
+    const url = new URL(uploadUrlOrToken);
+    const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
+      throw new Error("Presigned upload URLs must use HTTPS.");
+    }
+    return url.toString();
+  }
+  if (!/^[A-Za-z0-9_-]{16,512}$/.test(uploadUrlOrToken)) {
+    throw new Error("Invalid presigned upload token.");
+  }
+  return `${getApiBaseUrl()}/presigned-url/${encodeURIComponent(uploadUrlOrToken)}`;
 }
 
 // src/server/logs/logger.ts
@@ -1488,6 +1506,9 @@ var MAX_PENDING_EVENTS = 2e3;
 var REQUEST_TIMEOUT_MS = 18e4;
 var DEFAULT_IN_PROGRESS_RETRY_MS = 5e3;
 var MAX_RETRY_AFTER_MS = 3e4;
+function resolveLogsIngestionUrl(serverId, baseUrl = getLogsBaseUrl()) {
+  return serverId ? `${baseUrl}/v1/servers/${encodeURIComponent(serverId)}/logs` : `${baseUrl}/v1/logs`;
+}
 var LogsTransportError = class extends Error {
   code;
   details;
@@ -1615,7 +1636,7 @@ async function sendLogsBatch(batch) {
   let response;
   try {
     response = await fetch(
-      `${getLogsBaseUrl()}/v1/servers/${encodeURIComponent(serverId)}/logs`,
+      resolveLogsIngestionUrl(serverId),
       {
         method: "POST",
         headers: {
@@ -1779,8 +1800,9 @@ function getErrorMessage5(logError) {
 var DEFAULT_LOOKBACK_MINUTES = 6 * 60;
 var MAX_LOOKBACK_MINUTES = 7 * 24 * 60;
 function buildLogsQueryRequest(options, context) {
-  const serverId = (options.serverId ?? context.serverId).trim().toLowerCase();
-  if (!/^[a-z0-9-]{3,64}$/.test(serverId)) {
+  const requestedServerId = options.serverId ?? context.serverId ?? void 0;
+  const serverId = requestedServerId == null ? void 0 : requestedServerId.trim().toLowerCase();
+  if (serverId !== void 0 && !/^[a-z0-9-]{3,64}$/.test(serverId)) {
     throw new Error("A valid FiveMesh CFX server ID is required.");
   }
   if (options.from && options.lookbackMinutes !== void 0) {
@@ -1805,11 +1827,11 @@ function buildLogsQueryRequest(options, context) {
     throw new Error("limit must be an integer between 1 and 100.");
   }
   const request = {
-    serverId,
     from: from.toISOString(),
     to: to.toISOString(),
     limit
   };
+  if (serverId !== void 0) request.serverId = serverId;
   const level = options.level ?? void 0;
   const eventType = optionalString4(options.eventType);
   const resource = optionalString4(options.resource);
@@ -1850,6 +1872,68 @@ function parseQueryDate(value, label, fallback) {
 function optionalString4(value) {
   const normalized = value == null ? void 0 : value.trim();
   return normalized || void 0;
+}
+
+// src/server/identity.ts
+async function whoami() {
+  const { success: _success, requestId: _requestId, error: _error, ...identity } = await requestJson(getApiBaseUrl(), "/whoami", {
+    timeoutMs: 1e4
+  });
+  void _success;
+  void _requestId;
+  void _error;
+  return {
+    allowedMimeTypes: identity.allowedMimeTypes ?? null,
+    keyId: identity.keyId ?? "unknown",
+    organization: identity.organization ?? { id: "unknown", name: null },
+    permissions: identity.permissions ?? {},
+    restrictions: identity.restrictions ?? { allowedPrefixes: [], deniedPrefixes: [] },
+    server: identity.server ?? null
+  };
+}
+function describePermissions(identity, service) {
+  const actions = identity.permissions[service];
+  return Array.isArray(actions) && actions.length ? actions.join(", ") : "none";
+}
+async function logApiKeyIdentity() {
+  let identity;
+  try {
+    identity = await whoami();
+  } catch (error2) {
+    if (error2 instanceof FiveMeshApiError) {
+      console.error(
+        `[FiveMesh SDK] API key check failed: ${error2.message} (code=${error2.code} requestId=${error2.requestId ?? "unknown"}). Verify the key in the FiveMesh dashboard and that it is enabled.`
+      );
+      return;
+    }
+    console.error(
+      `[FiveMesh SDK] API key check failed: the FiveMesh API is unreachable (${error2 instanceof Error ? error2.message : String(error2)}).`
+    );
+    return;
+  }
+  const organization = identity.organization.name ? `${identity.organization.name} (${identity.organization.id})` : identity.organization.id;
+  const configuredServerId = getLogsServerId();
+  if (!identity.server) {
+    if (configuredServerId) {
+      console.warn(
+        `[FiveMesh SDK] API key is global to ${organization}; Logs features use FIVEMESH_SERVER_ID "${configuredServerId}".`
+      );
+      return;
+    }
+    console.error(
+      `[FiveMesh SDK] API key is global to ${organization} and no server is configured. Logs ingestion and queries need \`set FIVEMESH_SERVER_ID "your-cfx-server-id"\`, or a key that is specific to this server.`
+    );
+    return;
+  }
+  if (configuredServerId && configuredServerId !== identity.server.cfxId) {
+    console.warn(
+      `[FiveMesh SDK] API key is bound to server "${identity.server.cfxId}" but FIVEMESH_SERVER_ID is "${configuredServerId}". The binding wins; requests for another server are refused.`
+    );
+  }
+  const server = identity.server.name ? `${identity.server.name} (${identity.server.cfxId})` : identity.server.cfxId;
+  console.log(
+    `[FiveMesh SDK] API key ready. Organization: ${organization}. Server: ${server}. Logs: ${describePermissions(identity, "logs")}. CDN: ${describePermissions(identity, "cdn")}.`
+  );
 }
 
 // src/server/rpc.ts
@@ -2000,6 +2084,8 @@ exports("error", wrapExport("error", error));
 exports("fatal", wrapExport("fatal", fatal));
 exports("flushLogs", wrapExport("flushLogs", flushLogs));
 exports("queryLogs", wrapExport("queryLogs", queryLogs));
+exports("whoami", wrapExport("whoami", whoami));
+void logApiKeyIdentity();
 if (getDebugEnabled()) {
   console.log(`[FiveMesh SDK] Ready. API base URL: ${getApiBaseUrl()}`);
 } else {

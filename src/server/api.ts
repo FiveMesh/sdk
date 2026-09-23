@@ -51,6 +51,7 @@ export function uploadFile(
     body: form,
     headers: idempotencyHeaders(options.idempotencyKey),
     keyProfile: options.keyProfile,
+    timeoutMs: 120_000,
   });
 }
 
@@ -97,6 +98,7 @@ export function bulkUpload(
     body: form,
     headers: idempotencyHeaders(options.idempotencyKey),
     keyProfile: options.keyProfile,
+    timeoutMs: 120_000,
   });
 }
 
@@ -166,13 +168,31 @@ export function uploadWithPresignedUrl(
   if (options.path) form.append("path", options.path);
   appendMetadata(form, options.metadata);
 
-  const url = uploadUrlOrToken.startsWith("http")
-    ? uploadUrlOrToken
-    : `${getApiBaseUrl()}/presigned-url/${uploadUrlOrToken}`;
+  const url = resolvePresignedUploadUrl(uploadUrlOrToken);
 
   return requestJson<UploadObjectResponse>(url, "", {
     method: "POST",
     body: form,
     authenticated: false,
+    timeoutMs: 120_000,
   });
+}
+
+export function resolvePresignedUploadUrl(uploadUrlOrToken: string): string {
+  if (/^https?:\/\//i.test(uploadUrlOrToken)) {
+    const url = new URL(uploadUrlOrToken);
+    const loopback =
+      url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "[::1]";
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
+      throw new Error("Presigned upload URLs must use HTTPS.");
+    }
+    return url.toString();
+  }
+
+  if (!/^[A-Za-z0-9_-]{16,512}$/.test(uploadUrlOrToken)) {
+    throw new Error("Invalid presigned upload token.");
+  }
+  return `${getApiBaseUrl()}/presigned-url/${encodeURIComponent(uploadUrlOrToken)}`;
 }

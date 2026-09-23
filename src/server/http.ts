@@ -13,6 +13,8 @@ type RequestOptions = {
   timeoutMs?: number;
 };
 
+export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
 function buildUrl(baseUrl: string, path: string, query?: RequestOptions["query"]) {
   const suffix = path === "" ? "" : path.startsWith("/") ? path : `/${path}`;
   const url = new URL(`${baseUrl}${suffix}`);
@@ -44,22 +46,22 @@ export async function requestJson<T extends ApiEnvelope>(
       options.authorization ?? getBearerToken(options.keyProfile);
   }
 
-  const controller =
-    options.timeoutMs === undefined ? undefined : new AbortController();
-  const timeout =
-    controller === undefined
-      ? undefined
-      : setTimeout(() => controller.abort(), options.timeoutMs);
+  const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(new Error(`Request timed out after ${timeoutMs}ms.`)),
+    Math.max(1, timeoutMs),
+  );
   let response: Response;
   try {
     response = await fetch(buildUrl(baseUrl, path, options.query), {
       method: options.method ?? "GET",
       headers,
       body: options.body,
-      signal: controller?.signal,
+      signal: controller.signal,
     });
   } finally {
-    if (timeout !== undefined) clearTimeout(timeout);
+    clearTimeout(timeout);
   }
 
   const requestId = response.headers.get("x-request-id") ?? undefined;
