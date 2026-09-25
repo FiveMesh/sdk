@@ -6,10 +6,11 @@ import { requestJson } from "./http";
 export type ApiKeyIdentity = {
   allowedMimeTypes: string[] | null;
   keyId: string;
+  credentialType: "server" | "developer";
   organization: { id: string; name: string | null };
   permissions: Record<string, string[]>;
   restrictions: { allowedPrefixes: string[]; deniedPrefixes: string[] };
-  server: { cfxId: string; hostname: string | null; name: string | null } | null;
+  server: { id: string; cfxId: string | null; hostname: string | null; name: string | null } | null;
 };
 
 type WhoamiResponse = ApiEnvelope & Partial<ApiKeyIdentity>;
@@ -29,6 +30,7 @@ export async function whoami(): Promise<ApiKeyIdentity> {
   return {
     allowedMimeTypes: identity.allowedMimeTypes ?? null,
     keyId: identity.keyId ?? "unknown",
+    credentialType: identity.credentialType ?? "developer",
     organization: identity.organization ?? { id: "unknown", name: null },
     permissions: identity.permissions ?? {},
     restrictions: identity.restrictions ?? { allowedPrefixes: [], deniedPrefixes: [] },
@@ -84,7 +86,7 @@ export async function logApiKeyIdentity(): Promise<void> {
     return;
   }
 
-  if (configuredServerId && configuredServerId !== identity.server.cfxId) {
+  if (configuredServerId && identity.server.cfxId && configuredServerId !== identity.server.cfxId) {
     console.warn(
       `[FiveMesh SDK] API key is bound to server "${identity.server.cfxId}" but FIVEMESH_SERVER_ID is "${configuredServerId}". ` +
         "The binding wins; requests for another server are refused.",
@@ -92,8 +94,8 @@ export async function logApiKeyIdentity(): Promise<void> {
   }
 
   const server = identity.server.name
-    ? `${identity.server.name} (${identity.server.cfxId})`
-    : identity.server.cfxId;
+    ? `${identity.server.name} (${identity.server.id})`
+    : identity.server.id;
   console.log(
     `[FiveMesh SDK] API key ready. Organization: ${organization}. Server: ${server}. ` +
       `Logs: ${describePermissions(identity, "logs")}. CDN: ${describePermissions(identity, "cdn")}.`,

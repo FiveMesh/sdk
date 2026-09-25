@@ -4,6 +4,7 @@ import test from "node:test";
 import { createAutomaticEventThrottle } from "../src/server/logs/automatic.ts";
 import {
   assertRequiredConfig,
+  getLogsBearerToken,
   getLogsQueryBearerToken,
   getLogsServerId,
 } from "../src/server/config.ts";
@@ -387,6 +388,20 @@ test("supports a dedicated read-only Logs query key", () => {
       getLogsQueryBearerToken(),
       "Bearer fm_live_logs_read",
     );
+  } finally {
+    globalThis.GetConvar = previousGetConvar;
+  }
+});
+
+test("uses one Server API Key for ingestion and queries by default", () => {
+  const previousGetConvar = globalThis.GetConvar;
+  globalThis.GetConvar = (name, fallback = "") =>
+    name === "FIVEMESH_API_KEY" ? "fm_server_runtime_key" : fallback;
+  try {
+    assert.doesNotThrow(() => assertRequiredConfig());
+    assert.equal(getLogsBearerToken(), "Bearer fm_server_runtime_key");
+    assert.equal(getLogsQueryBearerToken(), "Bearer fm_server_runtime_key");
+    assert.equal(getLogsServerId(), null);
   } finally {
     globalThis.GetConvar = previousGetConvar;
   }

@@ -30,17 +30,9 @@ pnpm build
 In `server.cfg`:
 
 ```cfg
-set FIVEMESH_API_KEY "fm_live_..."
-# Or use a dedicated Logs-scoped key
-# set FIVEMESH_LOGS_API_KEY "fm_live_..."
-# Recommended for resources that query Logs
-# set FIVEMESH_LOGS_QUERY_API_KEY "fm_live_..."
+set FIVEMESH_API_KEY "fm_server_..."
 # Optional, defaults to https://api.fivemesh.io/v1
 set FIVEMESH_API_URL "https://api.fivemesh.io/v1"
-
-# Required when using FiveMesh Logs with a global (all servers) key.
-# A key created for one server already names it, so this can be omitted.
-set FIVEMESH_SERVER_ID "your-cfx-server-id"
 
 # Optional: automatically log useful server, txAdmin, and ox_inventory events
 set FIVEMESH_LOGS_AUTOMATIC "true"
@@ -53,9 +45,10 @@ ensure fivemesh-sdk
 Set FiveMesh ConVars before `ensure fivemesh-sdk` so they are available while
 the resource starts.
 
-The API key must have the matching permissions for the exports you call. CDN
-uses `read`, `write`, `delete`, and/or `purge`; Logs ingestion uses
-`logs:write`, while Logs queries use `logs:read`.
+Generate a Server API Key on the Server page. It permits CDN uploads and Logs
+ingestion and queries. CDN listing, deletion and purge require a Developer API
+Key with the corresponding permissions. Existing service-specific key ConVars
+remain available for custom integrations.
 
 You can also define optional API key profiles for stricter path and permission
 separation:
@@ -389,7 +382,7 @@ in the server console immediately.
 local identity = exports["fivemesh-sdk"]:whoami()
 
 if identity.success and identity.server then
-  print(("Bound to %s (%s)"):format(identity.server.name or "server", identity.server.cfxId))
+  print(("Bound to %s (%s)"):format(identity.server.name or "server", identity.server.id))
 end
 ```
 
@@ -418,9 +411,9 @@ print(result.object.publicUrl)
 
 | ConVar                            | Default                      | Description                                                              |
 | --------------------------------- | ---------------------------- | ------------------------------------------------------------------------ |
-| `FIVEMESH_API_KEY`                | none                         | Better Auth service API key with `fm_live_` prefix.                      |
+| `FIVEMESH_API_KEY`                | none                         | Server API Key (`fm_server_...`) for normal setup; Developer keys also work. |
 | `FIVEMESH_LOGS_API_KEY`           | `FIVEMESH_API_KEY`           | Optional dedicated key with `logs:write`.                               |
-| `FIVEMESH_LOGS_QUERY_API_KEY`     | Logs/general API key         | Preferred dedicated key with `logs:read` for `queryLogs`.               |
+| `FIVEMESH_LOGS_QUERY_API_KEY`     | Logs/general API key         | Optional dedicated Developer key with `logs:read` for `queryLogs`.      |
 | `FIVEMESH_API_KEY_<PROFILE_NAME>` | none                         | Optional case-sensitive key profile used by SDK calls with `keyProfile`. |
 | `FIVEMESH_API_URL`                | `https://api.fivemesh.io/v1` | API base URL.                                                            |
 | `FIVEMESH_SDK_DEBUG`              | `false`                      | Prints the resolved API base URL on boot.                                |

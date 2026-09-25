@@ -63,7 +63,7 @@ export function getApiKey(keyProfile?: string): string {
 
   if (!key) {
     throw new Error(
-      "Missing FiveMesh API key. Add `set FIVEMESH_API_KEY fm_live_...` to server.cfg.",
+      "Missing FiveMesh API key. Add `set FIVEMESH_API_KEY \"fm_server_...\"` to server.cfg.",
     );
   }
 
@@ -106,7 +106,7 @@ export function assertLogsWriteConfig(): void {
     getLogsBearerToken();
   } catch {
     throw new Error(
-      "Automatic FiveMesh Logs ingestion requires `FIVEMESH_LOGS_API_KEY` with `logs:write`, or a compatible `FIVEMESH_API_KEY`.",
+      "Automatic FiveMesh Logs ingestion requires a Server API Key in `FIVEMESH_API_KEY`, or a compatible Logs key with `logs:write`.",
     );
   }
 }

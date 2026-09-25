@@ -43,7 +43,7 @@ function getApiKey(keyProfile) {
   const key = readConvar("FIVEMESH_API_KEY") || readConvar("FIVEMESH_CDN_API_KEY") || readConvar("FIVEMESH_SERVICE_API_KEY") || readConvar("FIVEMESH_LOGS_API_KEY");
   if (!key) {
     throw new Error(
-      "Missing FiveMesh API key. Add `set FIVEMESH_API_KEY fm_live_...` to server.cfg."
+      'Missing FiveMesh API key. Add `set FIVEMESH_API_KEY "fm_server_..."` to server.cfg.'
     );
   }
   return key;
@@ -75,7 +75,7 @@ function assertLogsWriteConfig() {
     getLogsBearerToken();
   } catch {
     throw new Error(
-      "Automatic FiveMesh Logs ingestion requires `FIVEMESH_LOGS_API_KEY` with `logs:write`, or a compatible `FIVEMESH_API_KEY`."
+      "Automatic FiveMesh Logs ingestion requires a Server API Key in `FIVEMESH_API_KEY`, or a compatible Logs key with `logs:write`."
     );
   }
 }
@@ -1885,6 +1885,7 @@ async function whoami() {
   return {
     allowedMimeTypes: identity.allowedMimeTypes ?? null,
     keyId: identity.keyId ?? "unknown",
+    credentialType: identity.credentialType ?? "developer",
     organization: identity.organization ?? { id: "unknown", name: null },
     permissions: identity.permissions ?? {},
     restrictions: identity.restrictions ?? { allowedPrefixes: [], deniedPrefixes: [] },
@@ -1925,12 +1926,12 @@ async function logApiKeyIdentity() {
     );
     return;
   }
-  if (configuredServerId && configuredServerId !== identity.server.cfxId) {
+  if (configuredServerId && identity.server.cfxId && configuredServerId !== identity.server.cfxId) {
     console.warn(
       `[FiveMesh SDK] API key is bound to server "${identity.server.cfxId}" but FIVEMESH_SERVER_ID is "${configuredServerId}". The binding wins; requests for another server are refused.`
     );
   }
-  const server = identity.server.name ? `${identity.server.name} (${identity.server.cfxId})` : identity.server.cfxId;
+  const server = identity.server.name ? `${identity.server.name} (${identity.server.id})` : identity.server.id;
   console.log(
     `[FiveMesh SDK] API key ready. Organization: ${organization}. Server: ${server}. Logs: ${describePermissions(identity, "logs")}. CDN: ${describePermissions(identity, "cdn")}.`
   );
